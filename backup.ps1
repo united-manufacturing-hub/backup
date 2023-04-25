@@ -38,11 +38,37 @@ param(
     [string]$DatabaseDatabase = "factoryinsight",
 
     [Parameter(Mandatory=$true)] # Path to the kubeconfig file
-    [string]$KubeconfigPath = ""
+    [string]$KubeconfigPath = "",
+
+    [Parameter(Mandatory=$false)] # Skip disk space check
+    [bool]$SkipDiskSpaceCheck = $false
 )
 
 $Now = Get-Date
 Write-Host "Starting backup at $Now"
+
+# Skip if $SkipDiskSpaceCheck is set to true
+if ($SkipDiskSpaceCheck) {
+    Write-Host "Skipping disk space check"
+}else
+{
+
+    # Calculate approximate size of the backup
+    Write-Host "Calculating approximate size of the backup"
+    $env:PGPASSWORD = $DatabasePassword
+    $connectionString = "postgres://${DatabaseUser}:${Password}@${IP}:${DatabasePort}/${DatabaseDatabase}?sslmode=require"
+    $cmd = "SELECT pg_size_pretty(pg_database_size('${DatabaseDatabase}'));"
+    psql -c $cmd $connectionString
+    $connectionString = ""
+    $env:PGPASSWORD = ""
+    Write-Host "Do you have enough disk space? (y/n)"
+    $answer = Read-Host
+    if ($answer -ne "y")
+    {
+        Write-Host "Aborting backup"
+        exit 1
+    }
+}
 
 # Run the backup-grafana.ps1 script with, using $IP and $GrafanaPort as first param and $GrafanaToken as second param
 & ./backup-grafana.ps1 -FullUrl "http://${IP}:${GrafanaPort}" -Token ${GrafanaToken}
