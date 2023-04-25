@@ -61,7 +61,7 @@ $jsonFiles = Get-ChildItem -Path "$UnpackagedgrafanaPath" -Recurse -Filter "*.js
 # Process each JSON file
 foreach ($jsonFile in $jsonFiles) {
     # Read the JSON file and convert it to a PowerShell object
-    $jsonContent = Get-Content -Path $jsonFile.FullName -Raw | ConvertFrom-Json
+    $jsonContent = Get-Content -Path $jsonFile.FullName -Raw | ConvertFrom-Json -Depth 100
 
     # Function to process JSON objects recursively
     function Process-JsonObject {
@@ -104,23 +104,67 @@ $folderNames = $jsonFiles | ForEach-Object { Split-Path -Path $_.DirectoryName -
 # Initialize a new map to store the folder name and the returned uid
 $folderUidMap = @{}
 
+# Get the existing folders from the API
+$getFoldersApiUrl = "$FullUrl/api/folders?limit=1000"
+$existingFolders = Invoke-RestMethod -Uri $getFoldersApiUrl -Method Get -Headers $headers
+
 foreach ($folderName in $folderNames) {
     # Skip the folder named "General"
     if ($folderName -eq "General") {
         continue
     }
 
-    # Create the folder using the API request
-    $folderCreationApiUrl = "$FullUrl/api/folders"
-    $folderCreationBody = @{
-        "title" = $folderName
-    } | ConvertTo-Json
+    # Check if the folder already exists
+    $existingFolder = $existingFolders | Where-Object { $_.title -eq $folderName }
 
-    $folderCreationResponse = Invoke-RestMethod -Uri $folderCreationApiUrl -Method Post -Headers $headers -Body $folderCreationBody
+    if ($existingFolder) {
+        # Update the folderUidMap with the existing folder's uid
+        $folderUidMap[$folderName] = $existingFolder.uid
+    } else {
+        # Create the folder using the API request
+        $folderCreationApiUrl = "$FullUrl/api/folders"
+        $folderCreationBody = @{
+            "title" = $folderName
+        } | ConvertTo-Json -Depth 100
 
-    # Add the folder name and the returned uid to the map
-    $folderUidMap[$folderName] = $folderCreationResponse.uid
+        $folderCreationResponse = Invoke-RestMethod -Uri $folderCreationApiUrl -Method Post -Headers $headers -Body $folderCreationBody
+
+        # Add the folder name and the returned uid to the map
+        $folderUidMap[$folderName] = $folderCreationResponse.uid
+    }
 }
 
-# Output the folderUidMap
-$folderUidMap
+foreach ($jsonFile in $jsonFiles) {
+    # Get the folder name for the current JSON file
+    $folderName = Split-Path -Path $jsonFile.DirectoryName -Leaf
+
+    # Get the folder UID from the folderUidMap, if the folder name exists in the map
+    $folderUid = $null
+    if ($folderUidMap.ContainsKey($folderName)) {
+        $folderUid = $folderUidMap[$folderName]
+    }
+
+    # Read the JSON file content
+    $jsonFileContent = Get-Content -Path $jsonFile.FullName -Raw | ConvertFrom-Json -Depth 100
+
+    # Set the id field to null
+    $jsonFileContent.id = $null
+
+    # Create the request body
+    $dashboardPostBody = @{
+        "dashboard" = $jsonFileContent
+        "message"    = "Imported"
+        "overwrite"  = $true
+    }
+
+    # Set the folderUid only if it's not null
+    if ($folderUid -ne $null) {
+        $dashboardPostBody["folderUid"] = $folderUid
+    }
+
+    $dashboardPostBody = $dashboardPostBody | ConvertTo-Json -Depth 100
+
+    # Post the JSON file to the /api/dashboards/db endpoint
+    $dashboardPostApiUrl = "$FullUrl/api/dashboards/db"
+    Invoke-RestMethod -Uri $dashboardPostApiUrl -Method Post -Headers $headers -Body $dashboardPostBody
+}
