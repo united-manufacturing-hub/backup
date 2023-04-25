@@ -50,7 +50,7 @@ SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $Po
 
 # Compress the nodered folder
 $SevenZipPath = ".\_tools\7z.exe"
-& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "./nodered/"
+& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "./nodered/" | Out-Null
 
 # Delete the nodered folder
 Remove-Item -Path "./nodered" -Recurse -Force

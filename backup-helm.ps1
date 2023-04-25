@@ -29,7 +29,7 @@ GetHelmValues -kubeconfigPath $KubeconfigPath -namespace $Namespace -releaseName
 
 # Compress the helm folder
 $SevenZipPath = ".\_tools\7z.exe"
-& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "./helm/"
+& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "./helm/" | Out-Null
 
 
 # Delete the helm folder

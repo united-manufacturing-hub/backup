@@ -69,7 +69,7 @@ Remove-Item -Path $InPath -Recurse -Force
 
 # Compress the grafana folder
 $SevenZipPath = ".\_tools\7z.exe"
-& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "./grafana/"
+& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "./grafana/" | Out-Null
 
 # Delete the grafana folder
 Remove-Item -Path "./grafana" -Recurse -Force
