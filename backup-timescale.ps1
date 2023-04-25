@@ -21,7 +21,7 @@ if (Test-Path $ArchiveName) {
         Write-Host "Aborted. No changes have been made to the existing $ArchiveName."
         exit 1
     }
-    
+
     Remove-Item -Path "./timescale" -Recurse -Force
 }
 New-Item -Path $ArchiveName -ItemType Directory -Force | Out-Null
@@ -67,15 +67,14 @@ foreach ($tableName in $TableNames) {
     psql -c $copyCommand $connectionString
 
     # Create a zip archive for the CSV file
-    Compress-Archive -Path $csvPath -DestinationPath $zipPath -Force
-    & $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${csvPath}.7z" $csvPath
+    & $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${zipPath}" $csvPath | Out-Null
 
     # Remove the original CSV file
     Remove-Item -Path $csvPath -Force
 }
 
 # pvTables
-$TableNamesPV = @(    
+$TableNamesPV = @(
     "processValueTable",
     "processValueStringTable"
 )
@@ -101,10 +100,10 @@ foreach ($tableName in $TableNamesPV) {
 
             $copyCommand = "\COPY (SELECT * FROM ${tableName} WHERE timestamp >= '${iterationStart}' AND timestamp < '${iterationEnd}') TO '${csvPath}' CSV"
             psql -c $copyCommand $connectionString
-             
+
             # Create a zip archive for the CSV file
             $zipPath = "./timescale/tables/${tableName}_${iterStartFileName}.7z"
-            & $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${csvPath}.7z" $csvPath
+            & $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${csvPath}.7z" $csvPath | Out-Null
 
             # Remove the original CSV file
             Remove-Item -Path $csvPath -Force
@@ -117,5 +116,7 @@ foreach ($tableName in $TableNamesPV) {
 # Dump post-data
 pg_dump -U $User -h $Ip -p $Port -Fc -v --section=post-data --exclude-schema="_timescaledb*" -f ./timescale/dump_post_data.bak $Database
 
-
 $env:PGPASSWORD = ""
+
+
+Write-Host "Backup of timescale database complete."
