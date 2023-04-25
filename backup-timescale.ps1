@@ -113,6 +113,9 @@ foreach ($tableName in $TableNamesPV) {
     }
 }
 
+# Go trough tables folder and clean up every .csv file, that might be left over
+Get-ChildItem -Path "./timescale/tables" -Filter "*.csv" | Remove-Item -Force
+
 # Dump post-data
 pg_dump -U $User -h $Ip -p $Port -Fc -v --section=post-data --exclude-schema="_timescaledb*" -f ./timescale/dump_post_data.bak $Database
 
