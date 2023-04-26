@@ -3,7 +3,8 @@ param(
     [string]$Password = "",
     [int]$Port = 5432,
     [string]$User = "factoryinsight",
-    [string]$Database = "factoryinsight"
+    [string]$Database = "factoryinsight",
+    [string]$OutputPath = "."
 )
 
 if (!$Ip) {
@@ -14,7 +15,7 @@ if (!$Password) {
     $Password = Read-Host -Prompt "Enter the password of your postgresql ($User) user:"
 }
 
-$ArchiveName = "./timescale"
+$ArchiveName = "${OutputPath}/timescale"
 if (Test-Path $ArchiveName) {
     $overwrite = Read-Host -Prompt "The folder $ArchiveName already exists. Do you want to overwrite it? (y/N)"
     if ($overwrite.ToLower() -ne 'y') {
@@ -22,7 +23,7 @@ if (Test-Path $ArchiveName) {
         exit 1
     }
 
-    Remove-Item -Path "./timescale" -Recurse -Force
+    Remove-Item -Path "${OutputPath}/timescale" -Recurse -Force
 }
 New-Item -Path $ArchiveName -ItemType Directory -Force | Out-Null
 New-Item -Path "$ArchiveName/tables" -ItemType Directory -Force | Out-Null
@@ -54,7 +55,7 @@ $versionInfo = @{
 $versionInfo | ConvertTo-Json | Out-File -FilePath "$ArchiveName/version.json"
 
 # Dump pre-data
-pg_dump -U $User -h $Ip -p $Port -Fc -v --section=pre-data --exclude-schema="_timescaledb*" -f ./timescale/dump_pre_data.bak $Database
+pg_dump -U $User -h $Ip -p $Port -Fc -v --section=pre-data --exclude-schema="_timescaledb*" -f ${OutputPath}/timescale/dump_pre_data.bak $Database
 
 
 # Predefined table names
@@ -81,8 +82,8 @@ $SevenZipPath = ".\_tools\7z.exe"
 
 foreach ($tableName in $TableNames) {
     Write-Host "Backing up $tableName"
-    $csvPath = "./timescale/tables/${tableName}.csv"
-    $zipPath = "./timescale/tables/${tableName}.7z"
+    $csvPath = "${OutputPath}/timescale/tables/${tableName}.csv"
+    $zipPath = "${OutputPath}/timescale/tables/${tableName}.7z"
     $copyCommand = "\COPY (SELECT * FROM ${tableName}) TO '${csvPath}' CSV"
     psql -c $copyCommand $connectionString
 
@@ -116,13 +117,13 @@ foreach ($tableName in $TableNamesPV) {
             $iterationEnd = $oldestTime.ToString("yyyy-MM-dd HH:mm:ss.ffffff")
 
             Write-Host "Backing up $tableName from $iterationStart to $iterationEnd"
-            $csvPath = "./timescale/tables/${tableName}_${iterStartFileName}.csv"
+            $csvPath = "${OutputPath}/timescale/tables/${tableName}_${iterStartFileName}.csv"
 
             $copyCommand = "\COPY (SELECT * FROM ${tableName} WHERE timestamp >= '${iterationStart}' AND timestamp < '${iterationEnd}') TO '${csvPath}' CSV"
             psql -c $copyCommand $connectionString
 
             # Create a zip archive for the CSV file
-            $zipPath = "./timescale/tables/${tableName}_${iterStartFileName}.7z"
+            $zipPath = "${OutputPath}/timescale/tables/${tableName}_${iterStartFileName}.7z"
             & $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${csvPath}.7z" $csvPath | Out-Null
 
             # Remove the original CSV file
@@ -134,10 +135,10 @@ foreach ($tableName in $TableNamesPV) {
 }
 
 # Go trough tables folder and clean up every .csv file, that might be left over
-Get-ChildItem -Path "./timescale/tables" -Filter "*.csv" | Remove-Item -Force
+Get-ChildItem -Path "${OutputPath}/timescale/tables" -Filter "*.csv" | Remove-Item -Force
 
 # Dump post-data
-pg_dump -U $User -h $Ip -p $Port -Fc -v --section=post-data --exclude-schema="_timescaledb*" -f ./timescale/dump_post_data.bak $Database
+pg_dump -U $User -h $Ip -p $Port -Fc -v --section=post-data --exclude-schema="_timescaledb*" -f ${OutputPath}/timescale/dump_post_data.bak $Database
 
 $env:PGPASSWORD = ""
 

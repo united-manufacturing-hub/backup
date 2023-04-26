@@ -1,5 +1,6 @@
 param(
-    [string]$KubeconfigPath = ""
+    [string]$KubeconfigPath = "",
+    [string]$OutputPath = "."
 )
 
 function GetHelmValues($kubeconfigPath, $namespace, $releaseName, $outputFile) {
@@ -10,7 +11,7 @@ if (!$KubeconfigPath) {
     $KubeconfigPath = Read-Host -Prompt "Enter the Path to your kubeconfig:"
 }
 
-$ArchiveName = "helm_backup.7z"
+$ArchiveName = "${OutputPath}/helm_backup.7z"
 $Namespace = "united-manufacturing-hub"
 $ReleaseName = "united-manufacturing-hub"
 
@@ -22,17 +23,17 @@ if (Test-Path $ArchiveName) {
     }
 }
 
-New-Item -Path "./helm" -ItemType Directory -Force | Out-Null
+New-Item -Path "${OutputPath}/helm" -ItemType Directory -Force | Out-Null
 
 Write-Host "Saving Helm values"
-GetHelmValues -kubeconfigPath $KubeconfigPath -namespace $Namespace -releaseName $ReleaseName -outputFile "./helm/values.yaml"
+GetHelmValues -kubeconfigPath $KubeconfigPath -namespace $Namespace -releaseName $ReleaseName -outputFile "${OutputPath}/helm/values.yaml"
 
 # Compress the helm folder
 $SevenZipPath = ".\_tools\7z.exe"
-& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "./helm/" | Out-Null
+& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "${OutputPath}/helm/" | Out-Null
 
 
 # Delete the helm folder
-Remove-Item -Path "./helm" -Recurse -Force
+Remove-Item -Path "${OutputPath}/helm" -Recurse -Force
 
 Write-Host "Helm folder compressed to $ArchiveName and deleted"

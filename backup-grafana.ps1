@@ -1,6 +1,7 @@
 param(
     [string]$FullUrl = "",
-    [string]$Token = ""
+    [string]$Token = "",
+    [string]$OutputPath = "."
 )
 
 # Check if required cmdlets are available
@@ -22,7 +23,7 @@ if (!$Token) {
     $Token = Read-Host -Prompt "Enter the API token:"
 }
 
-$ArchiveName = "grafana_backup.7z"
+$ArchiveName = "${OutputPath}/grafana_backup.7z"
 
 # Check if grafana_backup.7z already exists
 if (Test-Path $ArchiveName) {
@@ -37,7 +38,7 @@ if (Test-Path $ArchiveName) {
 $Headers = @{
     Authorization = "Bearer $Token"
 }
-$InPath = "./grafana/dashboards_raw"
+$InPath = "${OutputPath}/grafana/dashboards_raw"
 
 Write-Host "Exporting Grafana dashboards from $FullUrl"
 New-Item -Path $InPath -ItemType Directory -Force | Out-Null
@@ -58,7 +59,7 @@ foreach ($Dash in $DashList) {
     Invoke-RestMethod -Uri "$FullUrl/api/dashboards/uid/$Dash" -Headers $Headers -Method Get | ConvertTo-Json -Depth 100 | Set-Content $DashPath
     (Get-Content $DashPath | ConvertFrom-Json).dashboard | ConvertTo-Json -Depth 100 | Set-Content "$InPath/dashboard.json"
     $Title = (Get-Content $DashPath | ConvertFrom-Json).dashboard.title
-    $Folder = "./grafana/" + (Get-Content $DashPath | ConvertFrom-Json).meta.folderTitle
+    $Folder = "${OutputPath}/grafana/" + (Get-Content $DashPath | ConvertFrom-Json).meta.folderTitle
     New-Item -Path $Folder -ItemType Directory -Force | Out-Null
     Move-Item -Path "$InPath/dashboard.json" -Destination "$Folder/${Title}.json" -Force
     Write-Host "exported $Folder/${Title}.json"
@@ -69,9 +70,9 @@ Remove-Item -Path $InPath -Recurse -Force
 
 # Compress the grafana folder
 $SevenZipPath = ".\_tools\7z.exe"
-& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "./grafana/" | Out-Null
+& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "${OutputPath}/grafana/" | Out-Null
 
 # Delete the grafana folder
-Remove-Item -Path "./grafana" -Recurse -Force
+Remove-Item -Path "${OutputPath}/grafana" -Recurse -Force
 
 Write-Host "Grafana folder compressed to $ArchiveName and deleted"

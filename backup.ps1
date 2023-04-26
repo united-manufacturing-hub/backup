@@ -25,7 +25,7 @@ param(
     [Parameter(Mandatory=$true)] # Grafana API token
     [string]$GrafanaToken = "",
 
-    [Parameter(Mandatory=$true)] # Password of the database user
+    [Parameter(Mandatory=$true)] # Password of the database user. If default user (factoryinsight) is used, the default password is changeme
     [string]$DatabasePassword = "",
 
     [Parameter(Mandatory=$false)] # External port of the database
@@ -41,7 +41,10 @@ param(
     [string]$KubeconfigPath = "",
 
     [Parameter(Mandatory=$false)] # Skip disk space check
-    [bool]$SkipDiskSpaceCheck = $false
+    [bool]$SkipDiskSpaceCheck = $false,
+
+    [Parameter(Mandatory=$false)] # Output path
+    [string]$OutputPath = "."
 )
 
 $Now = Get-Date
@@ -70,15 +73,27 @@ if ($SkipDiskSpaceCheck) {
     }
 }
 
+# Check if output path exists
+if (-not (Test-Path $OutputPath)) {
+    Write-Host "Output path (${OutputPath}) does not exist, do you want to create it? (y/n)"
+    $answer = Read-Host
+    if ($answer -ne "y")
+    {
+        Write-Host "Aborting backup"
+        exit 1
+    }
+    New-Item -Path $OutputPath -ItemType Directory -Force | Out-Null
+}
+
 # Run the backup-grafana.ps1 script with, using $IP and $GrafanaPort as first param and $GrafanaToken as second param
-& ./backup-grafana.ps1 -FullUrl "http://${IP}:${GrafanaPort}" -Token ${GrafanaToken}
-& ./backup-helm.ps1 -KubeconfigPath ${KubeconfigPath}
-& ./backup-nodered.ps1 -KubeconfigPath ${KubeconfigPath}
-& ./backup-timescale.ps1 -Ip ${IP} -Password ${DatabasePassword} -Port ${DatabasePort} -User ${DatabaseUser} -Database ${DatabaseDatabase}
+& ./backup-grafana.ps1 -FullUrl "http://${IP}:${GrafanaPort}" -Token ${GrafanaToken} -OutputPath ${OutputPath}
+& ./backup-helm.ps1 -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath}
+& ./backup-nodered.ps1 -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath}
+& ./backup-timescale.ps1 -Ip ${IP} -Password ${DatabasePassword} -Port ${DatabasePort} -User ${DatabaseUser} -Database ${DatabaseDatabase} -OutputPath ${OutputPath}
 
 # Create a new folder for the backup
 $CurrentDateTimestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$BackupFolderName = "backup_${CurrentDateTimestamp}"
+$BackupFolderName = "${OutputPath}/backup_${CurrentDateTimestamp}"
 New-Item -Path $BackupFolderName -ItemType Directory -Force | Out-Null
 
 # Move the backup files to the backup folder

@@ -1,5 +1,6 @@
 param(
-    [string]$KubeconfigPath = ""
+    [string]$KubeconfigPath = "",
+    [string]$OutputPath = "."
 )
 
 function SaveKubeFiles($kubeconfigPath, $namespace, $podName, $srcPath, $destPath) {
@@ -10,7 +11,7 @@ if (!$KubeconfigPath) {
     $KubeconfigPath = Read-Host -Prompt "Enter the Path to your kubeconfig:"
 }
 
-$ArchiveName = "nodered_backup.7z"
+$ArchiveName = "${OutputPath}/nodered_backup.7z"
 $Namespace = "united-manufacturing-hub"
 $PodName = "united-manufacturing-hub-nodered-0"
 
@@ -30,8 +31,10 @@ $HiddenConfigs = @(
     ".config.users.json.backup"
 )
 
+New-Item -Path "${OutputPath}/nodered" -ItemType Directory -Force | Out-Null
+
 foreach ($config in $HiddenConfigs) {
-    SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/$config" -destPath "nodered/$config"
+    SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/$config" -destPath "${OutputPath}/nodered/$config"
 }
 
 Write-Host "Saving settings, flows, and credentials"
@@ -42,17 +45,17 @@ $SettingsFiles = @{
 }
 
 foreach ($file in $SettingsFiles.Keys) {
-    SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/$file" -destPath "nodered/$($SettingsFiles[$file])"
+    SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/$file" -destPath "${OutputPath}/nodered/$($SettingsFiles[$file])"
 }
 
 Write-Host "Saving lib"
-SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/lib" -destPath "nodered/lib"
+SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/lib" -destPath "${OutputPath}/nodered/lib"
 
 # Compress the nodered folder
 $SevenZipPath = ".\_tools\7z.exe"
-& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "./nodered/" | Out-Null
+& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "${OutputPath}/nodered/" | Out-Null
 
 # Delete the nodered folder
-Remove-Item -Path "./nodered" -Recurse -Force
+Remove-Item -Path "${OutputPath}/nodered" -Recurse -Force
 
 Write-Host "Node-RED folder compressed to $ArchiveName and deleted"
