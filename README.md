@@ -17,6 +17,10 @@ We do *NOT* back up:
  - Other grafana data like Alerts, Users, ...
  - Timescale data unrelated to the united-manufacturing-hub chart
  - Any other data in the cluster
+ - TimescaleDB continuous aggregates
+   - If you want to back them up, please follow [this guide](https://docs.timescale.com/self-hosted/latest/migration/schema-then-data/#recreate-continuous-aggregates)
+ - TimescaleDB policies
+   - If you want to back them up, please follow [this guide](https://docs.timescale.com/self-hosted/latest/migration/schema-then-data/#recreate-policies)
 
 ### Backup
 
