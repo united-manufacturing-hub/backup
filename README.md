@@ -1,5 +1,7 @@
 # UMH-Backup
 
+WARNING: This is a work in progress. It is not yet ready for production use.
+
 ## Description
 This repo contains utilities for backing up and restoring UMH data.
 
