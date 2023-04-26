@@ -80,18 +80,35 @@ $TableNames = @(
 
 $SevenZipPath = ".\_tools\7z.exe"
 
-foreach ($tableName in $TableNames) {
+# Updated foreach loop for parallel execution with a limit of 4 parallel jobs
+$BackupJobScript = {
+    param ($SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName)
     Write-Host "Backing up $tableName"
-    $csvPath = "${OutputPath}/timescale/tables/${tableName}.csv"
     $zipPath = "${OutputPath}/timescale/tables/${tableName}.7z"
-    $copyCommand = "\COPY (SELECT * FROM ${tableName}) TO '${csvPath}' CSV"
+    $copyCommand = "\COPY (SELECT * FROM ${tableName}) TO PROGRAM '7z.exe a -si${tableName}.csv -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 ${zipPath}' CSV"
     psql -c $copyCommand $connectionString
-
-    # Create a zip archive for the CSV file
-    & $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${zipPath}" $csvPath | Out-Null
-
-    # Remove the original CSV file
-    Remove-Item -Path $csvPath -Force
+}
+$jobs = @()
+$jobLimit = 4
+foreach ($tableName in $TableNames) {
+    while ($jobs.Count -ge $jobLimit) {
+        $completed = $jobs | Where-Object { $_.State -eq 'Completed' }
+        foreach ($job in $completed) {
+            $jobs = $jobs | Where-Object { $_.Id -ne $job.Id }
+            Receive-Job -Job $job
+            Remove-Job -Job $job
+        }
+        Start-Sleep -Seconds 1
+    }
+    $job = Start-ThreadJob -ScriptBlock $BackupJobScript -ArgumentList $SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName
+    $jobs += $job
+}
+# Wait for all jobs to complete
+Wait-Job -Job $jobs
+# Receive and clean up remaining jobs
+foreach ($job in $jobs) {
+    Receive-Job -Job $job
+    Remove-Job -Job $job
 }
 
 # pvTables
@@ -101,6 +118,17 @@ $TableNamesPV = @(
 )
 
 # Dump data from tables into CSV files
+# Updated second foreach loop with parallelized inner loop
+$BackupPVJobScript = {
+    param ($SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName, $iterationStart, $iterationEnd)
+    Write-Host "Backing up $tableName from $iterationStart to $iterationEnd"
+    $iterStartFileName = ([datetime]::Parse($iterationStart)).ToString("yyyy-MM-dd_HH-mm-ss.ffffff")
+    $zipPath = "${OutputPath}/timescale/tables/${tableName}_${iterStartFileName}.7z"
+
+    $copyCommand = "\COPY (SELECT * FROM ${tableName} WHERE timestamp >= '${iterationStart}' AND timestamp < '${iterationEnd}') TO PROGRAM '7z.exe a -si${tableName}_${iterStartFileName}.csv -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 ${zipPath}' CSV"
+    psql -c $copyCommand $connectionString
+}
+
 foreach ($tableName in $TableNamesPV) {
     # Select oldest entry
     $oldestEntryQuery = "SELECT timestamp FROM ${tableName} ORDER BY timestamp LIMIT 1;"
@@ -109,25 +137,38 @@ foreach ($tableName in $TableNamesPV) {
     if ($oldestEntry) {
         $oldestTime = [datetime]::Parse($oldestEntry)
         $now = Get-Date
+        $timeRanges = @()
 
         while ($oldestTime -lt $now) {
             $iterationStart = $oldestTime.ToString("yyyy-MM-dd HH:mm:ss.ffffff")
-            $iterStartFileName = $oldestTime.ToString("yyyy-MM-dd_HH-mm-ss.ffffff")
             $oldestTime = $oldestTime.AddDays(7)
             $iterationEnd = $oldestTime.ToString("yyyy-MM-dd HH:mm:ss.ffffff")
+            $timeRanges += ,@($iterationStart, $iterationEnd)
+        }
 
-            Write-Host "Backing up $tableName from $iterationStart to $iterationEnd"
-            $csvPath = "${OutputPath}/timescale/tables/${tableName}_${iterStartFileName}.csv"
+        $jobs = @()
+        $jobLimit = 4
 
-            $copyCommand = "\COPY (SELECT * FROM ${tableName} WHERE timestamp >= '${iterationStart}' AND timestamp < '${iterationEnd}') TO '${csvPath}' CSV"
-            psql -c $copyCommand $connectionString
+        foreach ($timeRange in $timeRanges) {
+            while ($jobs.Count -ge $jobLimit) {
+                $completed = $jobs | Where-Object { $_.State -eq 'Completed' }
+                foreach ($job in $completed) {
+                    $jobs = $jobs | Where-Object { $_.Id -ne $job.Id }
+                    Receive-Job -Job $job
+                    Remove-Job -Job $job
+                }
+                Start-Sleep -Seconds 1
+            }
+            $job = Start-ThreadJob -ScriptBlock $BackupPVJobScript -ArgumentList $SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName, $timeRange[0], $timeRange[1]
+            $jobs += $job
+        }
 
-            # Create a zip archive for the CSV file
-            $zipPath = "${OutputPath}/timescale/tables/${tableName}_${iterStartFileName}.7z"
-            & $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${csvPath}.7z" $csvPath | Out-Null
-
-            # Remove the original CSV file
-            Remove-Item -Path $csvPath -Force
+        # Wait for all jobs to complete
+        Wait-Job -Job $jobs
+        # Receive and clean up remaining jobs
+        foreach ($job in $jobs) {
+            Receive-Job -Job $job
+            Remove-Job -Job $job
         }
     } else {
         Write-Host "No data found in $tableName"
