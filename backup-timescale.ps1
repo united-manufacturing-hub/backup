@@ -82,8 +82,7 @@ $TableNames = @(
 
 $SevenZipPath = ".\_tools\7z.exe"
 
-# Updated foreach loop for parallel execution with a limit of 4 parallel jobs
-
+Write-Host "Backing up tables"
 $BackupJobScript = {
     param ($SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName)
     Write-Host "Backing up $tableName"
@@ -127,7 +126,7 @@ $TableNamesPV = @(
     "processValueStringTable"
 )
 
-# Dump data from tables into CSV files
+Write-Host "Backing up processValueTables"
 $BackupPVJobScript = {
     param ($SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName, $iterationStart, $iterationEnd)
     Write-Host "Backing up $tableName from $iterationStart to $iterationEnd"

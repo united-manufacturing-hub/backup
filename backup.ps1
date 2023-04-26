@@ -19,8 +19,8 @@ param(
     [Parameter(Mandatory=$true)] # IP of the cluster
     [string]$IP = "",
 
-    [Parameter(Mandatory=$true)] # External port of the Grafana service
-    [string]$GrafanaPort = "",
+    [Parameter(Mandatory=$false)] # External port of the Grafana service
+    [string]$GrafanaPort = "8080",
 
     [Parameter(Mandatory=$true)] # Grafana API token
     [string]$GrafanaToken = "",

@@ -235,3 +235,5 @@ $erroredCommands | ForEach-Object {
 
 Write-Host "Restored post-data"
 Write-Host "Restored database $Database"
+
+$env:PGPASSWORD = ""
