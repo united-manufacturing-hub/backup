@@ -4,6 +4,7 @@ param(
 )
 
 function SaveKubeFiles($kubeconfigPath, $namespace, $podName, $srcPath, $destPath) {
+    Write-Host "Saving $srcPath to $destPath"
     .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $namespace cp "${podName}:${srcPath}" $destPath
 }
 
@@ -31,10 +32,10 @@ $HiddenConfigs = @(
     ".config.users.json.backup"
 )
 
-New-Item -Path "${OutputPath}/nodered" -ItemType Directory -Force | Out-Null
+New-Item -Path ".\nodered" -ItemType Directory -Force | Out-Null
 
 foreach ($config in $HiddenConfigs) {
-    SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/$config" -destPath "${OutputPath}/nodered/$config"
+    SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/$config" -destPath ".\nodered\$config"
 }
 
 Write-Host "Saving settings, flows, and credentials"
@@ -45,17 +46,17 @@ $SettingsFiles = @{
 }
 
 foreach ($file in $SettingsFiles.Keys) {
-    SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/$file" -destPath "${OutputPath}/nodered/$($SettingsFiles[$file])"
+    SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/$file" -destPath ".\nodered\$($SettingsFiles[$file])"
 }
 
 Write-Host "Saving lib"
-SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/lib" -destPath "${OutputPath}/nodered/lib"
+SaveKubeFiles -kubeconfigPath $KubeconfigPath -namespace $Namespace -podName $PodName -srcPath "/data/lib" -destPath ".\nodered\lib"
 
 # Compress the nodered folder
 $SevenZipPath = ".\_tools\7z.exe"
-& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" "${OutputPath}/nodered/" | Out-Null
+& $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${ArchiveName}" ".\nodered\" | Out-Null
 
 # Delete the nodered folder
-Remove-Item -Path "${OutputPath}/nodered" -Recurse -Force
+Remove-Item -Path ".\nodered\" -Recurse -Force
 
 Write-Host "Node-RED folder compressed to $ArchiveName and deleted"

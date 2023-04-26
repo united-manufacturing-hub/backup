@@ -4,7 +4,8 @@ param(
     [int]$Port = 5432,
     [string]$User = "factoryinsight",
     [string]$Database = "factoryinsight",
-    [string]$OutputPath = "."
+    [string]$OutputPath = ".",
+    [int]$ParallelJobs = 4
 )
 
 if (!$Ip) {
@@ -81,27 +82,35 @@ $TableNames = @(
 $SevenZipPath = ".\_tools\7z.exe"
 
 # Updated foreach loop for parallel execution with a limit of 4 parallel jobs
+
 $BackupJobScript = {
     param ($SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName)
     Write-Host "Backing up $tableName"
+    $csvPath = "${OutputPath}/timescale/tables/${tableName}.csv"
     $zipPath = "${OutputPath}/timescale/tables/${tableName}.7z"
-    $copyCommand = "\COPY (SELECT * FROM ${tableName}) TO PROGRAM '7z.exe a -si${tableName}.csv -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 ${zipPath}' CSV"
+    $copyCommand = "\COPY (SELECT * FROM ${tableName}) TO '${csvPath}' CSV"
     psql -c $copyCommand $connectionString
+
+    # Create a zip archive for the CSV file
+    & $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${zipPath}" $csvPath | Out-Null
+
+    # Remove the original CSV file
+    Remove-Item -Path $csvPath -Force
 }
-$jobs = @()
-$jobLimit = 4
+
+$jobs = New-Object System.Collections.ArrayList
 foreach ($tableName in $TableNames) {
-    while ($jobs.Count -ge $jobLimit) {
+    while ($jobs.Count -ge $ParallelJobs) {
         $completed = $jobs | Where-Object { $_.State -eq 'Completed' }
         foreach ($job in $completed) {
-            $jobs = $jobs | Where-Object { $_.Id -ne $job.Id }
+            $jobs.Remove($job) | Out-Null
             Receive-Job -Job $job
             Remove-Job -Job $job
         }
         Start-Sleep -Seconds 1
     }
     $job = Start-ThreadJob -ScriptBlock $BackupJobScript -ArgumentList $SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName
-    $jobs += $job
+    $jobs.Add($job) | Out-Null
 }
 # Wait for all jobs to complete
 Wait-Job -Job $jobs
@@ -118,17 +127,25 @@ $TableNamesPV = @(
 )
 
 # Dump data from tables into CSV files
-# Updated second foreach loop with parallelized inner loop
 $BackupPVJobScript = {
     param ($SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName, $iterationStart, $iterationEnd)
     Write-Host "Backing up $tableName from $iterationStart to $iterationEnd"
     $iterStartFileName = ([datetime]::Parse($iterationStart)).ToString("yyyy-MM-dd_HH-mm-ss.ffffff")
+    $csvPath = "${OutputPath}/timescale/tables/${tableName}_${iterStartFileName}.csv"
     $zipPath = "${OutputPath}/timescale/tables/${tableName}_${iterStartFileName}.7z"
 
-    $copyCommand = "\COPY (SELECT * FROM ${tableName} WHERE timestamp >= '${iterationStart}' AND timestamp < '${iterationEnd}') TO PROGRAM '7z.exe a -si${tableName}_${iterStartFileName}.csv -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 ${zipPath}' CSV"
+    $copyCommand = "\COPY (SELECT * FROM ${tableName} WHERE timestamp >= '${iterationStart}' AND timestamp < '${iterationEnd}') TO '${csvPath}' CSV"
     psql -c $copyCommand $connectionString
+
+    # Create a zip archive for the CSV file
+    & $SevenZipPath a -m0=zstd -mx0 -md=16m -mmt=on -mfb=64 "${zipPath}" $csvPath | Out-Null
+
+    # Remove the original CSV file
+    Remove-Item -Path $csvPath -Force
 }
 
+
+$jobsPV = New-Object System.Collections.ArrayList
 foreach ($tableName in $TableNamesPV) {
     # Select oldest entry
     $oldestEntryQuery = "SELECT timestamp FROM ${tableName} ORDER BY timestamp LIMIT 1;"
@@ -146,27 +163,24 @@ foreach ($tableName in $TableNamesPV) {
             $timeRanges += ,@($iterationStart, $iterationEnd)
         }
 
-        $jobs = @()
-        $jobLimit = 4
-
         foreach ($timeRange in $timeRanges) {
-            while ($jobs.Count -ge $jobLimit) {
-                $completed = $jobs | Where-Object { $_.State -eq 'Completed' }
+            while ($jobsPV.Count -ge $ParallelJobs) {
+                $completed = $jobsPV | Where-Object { $_.State -eq 'Completed' }
                 foreach ($job in $completed) {
-                    $jobs = $jobs | Where-Object { $_.Id -ne $job.Id }
+                    $jobsPV.Remove($job) | Out-Null
                     Receive-Job -Job $job
                     Remove-Job -Job $job
                 }
                 Start-Sleep -Seconds 1
             }
             $job = Start-ThreadJob -ScriptBlock $BackupPVJobScript -ArgumentList $SevenZipPath, $OutputPath, $ArchiveName, $connectionString, $tableName, $timeRange[0], $timeRange[1]
-            $jobs += $job
+            $jobsPV.Add($job) | Out-Null
         }
 
         # Wait for all jobs to complete
-        Wait-Job -Job $jobs
+        Wait-Job -Job $jobsPV
         # Receive and clean up remaining jobs
-        foreach ($job in $jobs) {
+        foreach ($job in $jobsPV) {
             Receive-Job -Job $job
             Remove-Job -Job $job
         }
@@ -182,6 +196,5 @@ Get-ChildItem -Path "${OutputPath}/timescale/tables" -Filter "*.csv" | Remove-It
 pg_dump -U $User -h $Ip -p $Port -Fc -v --section=post-data --exclude-schema="_timescaledb*" -f ${OutputPath}/timescale/dump_post_data.bak $Database
 
 $env:PGPASSWORD = ""
-
 
 Write-Host "Backup of timescale database complete."
