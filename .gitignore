@@ -1,4 +1,6 @@
 *.7z
 *.bak
+.json
 **/*.7z
 **/*.bak
+**/*.json

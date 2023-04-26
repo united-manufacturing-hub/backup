@@ -168,3 +168,6 @@ foreach ($jsonFile in $jsonFiles) {
     $dashboardPostApiUrl = "$FullUrl/api/dashboards/db"
     Invoke-RestMethod -Uri $dashboardPostApiUrl -Method Post -Headers $headers -Body $dashboardPostBody
 }
+
+# Delete the unpackaged grafana folder
+Remove-Item -Path $UnpackagedgrafanaPath -Recurse -Force

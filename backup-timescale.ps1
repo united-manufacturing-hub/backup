@@ -31,11 +31,31 @@ New-Item -Path "$ArchiveName/tables" -ItemType Directory -Force | Out-Null
 # Set env variable for PGPASSWORD
 $env:PGPASSWORD = $Password
 
-# Dump pre-data
-pg_dump -U $User -h $Ip -p $Port -Fc -v --section=pre-data --exclude-schema="_timescaledb*" -f ./timescale/dump_pre_data.bak $Database
+# Get postgresql (SELECT version()) & timescaledb (\dx timescaledb) version
 
 # Connect to the source database
 $connectionString = "postgres://${User}:${Password}@${Ip}:${Port}/${Database}?sslmode=require"
+$versionQuery = "SELECT version();"
+$version = (psql -t -c $versionQuery $connectionString | Out-String).Trim()
+$timescaleQuery = "SELECT installed_version FROM pg_available_extensions WHERE name = 'timescaledb';"
+$timescaleVersion = (psql -t -c $timescaleQuery $connectionString | Out-String).Trim()
+
+# Extract PostgreSQL version from the string
+$version = $version -replace "PostgreSQL ([0-9]+\.[0-9]+).*", '$1'
+
+Write-Host "Connected to $version"
+Write-Host "TimescaleDB version: $timescaleVersion"
+
+# Write version info to json file
+$versionInfo = @{
+    "postgresql" = $version
+    "timescaledb" = $timescaleVersion
+}
+$versionInfo | ConvertTo-Json | Out-File -FilePath "$ArchiveName/version.json"
+
+# Dump pre-data
+pg_dump -U $User -h $Ip -p $Port -Fc -v --section=pre-data --exclude-schema="_timescaledb*" -f ./timescale/dump_pre_data.bak $Database
+
 
 # Predefined table names
 $TableNames = @(
