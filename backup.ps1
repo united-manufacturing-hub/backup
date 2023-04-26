@@ -44,7 +44,13 @@ param(
     [bool]$SkipDiskSpaceCheck = $false,
 
     [Parameter(Mandatory=$false)] # Output path
-    [string]$OutputPath = "."
+    [string]$OutputPath = ".",
+
+    [Parameter(Mandatory=$false)] # Parallel jobs
+    [int]$ParallelJobs = 4,
+
+    [Parameter(Mandatory=$false)] # Days per job
+    [int]$DaysPerJob = 7
 )
 
 $Now = Get-Date
@@ -89,7 +95,7 @@ if (-not (Test-Path $OutputPath)) {
 & ./backup-grafana.ps1 -FullUrl "http://${IP}:${GrafanaPort}" -Token ${GrafanaToken} -OutputPath ${OutputPath}
 & ./backup-helm.ps1 -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath}
 & ./backup-nodered.ps1 -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath}
-& ./backup-timescale.ps1 -Ip ${IP} -Password ${DatabasePassword} -Port ${DatabasePort} -User ${DatabaseUser} -Database ${DatabaseDatabase} -OutputPath ${OutputPath}
+& ./backup-timescale.ps1 -Ip ${IP} -Password ${DatabasePassword} -Port ${DatabasePort} -User ${DatabaseUser} -Database ${DatabaseDatabase} -OutputPath ${OutputPath} -ParallelJobs ${ParallelJobs} -DaysPerJob ${DaysPerJob}
 
 # Create a new folder for the backup
 $CurrentDateTimestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"

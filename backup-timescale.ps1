@@ -5,7 +5,8 @@ param(
     [string]$User = "factoryinsight",
     [string]$Database = "factoryinsight",
     [string]$OutputPath = ".",
-    [int]$ParallelJobs = 4
+    [int]$ParallelJobs = 4,
+    [int]$DaysPerJob = 31
 )
 
 if (!$Ip) {
@@ -158,7 +159,7 @@ foreach ($tableName in $TableNamesPV) {
 
         while ($oldestTime -lt $now) {
             $iterationStart = $oldestTime.ToString("yyyy-MM-dd HH:mm:ss.ffffff")
-            $oldestTime = $oldestTime.AddDays(7)
+            $oldestTime = $oldestTime.AddDays($DaysPerJob)
             $iterationEnd = $oldestTime.ToString("yyyy-MM-dd HH:mm:ss.ffffff")
             $timeRanges += ,@($iterationStart, $iterationEnd)
         }
