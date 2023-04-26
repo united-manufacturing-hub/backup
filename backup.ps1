@@ -50,7 +50,7 @@ param(
     [int]$ParallelJobs = 4,
 
     [Parameter(Mandatory=$false)] # Days per job
-    [int]$DaysPerJob = 7,
+    [int]$DaysPerJob = 31,
 
     [Parameter(Mandatory=$false)] # Enable GPG signing
     [bool]$EnableGpgSigning = $false,
@@ -118,6 +118,7 @@ Move-Item -Path "${OutputPath}/nodered_backup.7z" -Destination "${BackupFolderNa
 Move-Item -Path "${OutputPath}/timescale" -Destination "${BackupFolderName}/timescale"
 
 if ($EnableGpgSigning){
+    $OutputFile = Join-Path $BackupFolderName "file_hashes.json"
     # Get the current UNIX timestamp
     $UnixTimestamp = [DateTimeOffset]::Now.ToUnixTimeSeconds()
 
