@@ -22,6 +22,51 @@ if (!(Test-Path "$BackupPath\helm_backup.7z")) {
     exit 1
 }
 
+# Verify GPG signature
+$SignedFile = Join-Path $BackupFolderName "file_hashes.json"
+$SignatureFile = Join-Path $BackupFolderName "file_hashes.json.sig"
+
+$CheckGPG = $true
+if (!(Test-Path $SignedFile) -or !(Test-Path $SignatureFile)) {
+    Write-Host "The signed file or its signature is missing in the backup folder."
+    $CheckGPG = $false
+
+    Write-Host "Do you want to continue without GPG signature verification? (y/n)"
+    $answer = Read-Host
+    if ($answer -ne "y") {
+        exit 1
+    }
+}
+
+if ($CheckGPG)
+{
+    gpg --verify $SignatureFile $SignedFile
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-Host "GPG signature verification failed. Aborting the process."
+        exit 1
+    }
+
+    # Load the JSON file with the file hashes
+    $FileHashes = (Get-Content -Path $SignedFile | ConvertFrom-Json).Files
+
+    function Verify-FileHash($FilePath, $ExpectedHash)
+    {
+        $ActualHash = (Get-FileHash -Path $FilePath -Algorithm SHA512).Hash
+        return $ActualHash -eq $ExpectedHash
+    }
+
+    # Verify the hash of the helm_backup.7z file
+    $HelmBackupFile = Join-Path $BackupPath "helm_backup.7z"
+    $HelmBackupHash = ($FileHashes | Where-Object { $_.Path -eq "helm_backup.7z" }).Hash
+
+    if (!(Verify-FileHash -FilePath $HelmBackupFile -ExpectedHash $HelmBackupHash))
+    {
+        Write-Host "Hash verification failed for helm_backup.7z. Aborting the process."
+        exit 1
+    }
+}
+
 $UnpackagedHelmPath = ".\helm"
 $SevenZipPath = ".\_tools\7z.exe"
 # Decompress the helm folder

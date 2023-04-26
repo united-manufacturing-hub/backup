@@ -27,6 +27,68 @@ if (!(Test-Path "$BackupPath\timescale")) {
     Write-Host "The backup folder $BackupPath does not contain a timescale file."
     exit 1
 }
+# Verify GPG signature
+$SignedFile = Join-Path $BackupPath "file_hashes.json"
+$SignatureFile = Join-Path $BackupPath "file_hashes.json.sig"
+
+$CheckGPG = $true
+if (!(Test-Path $SignedFile) -or !(Test-Path $SignatureFile)) {
+    Write-Host "The signed file or its signature is missing in the backup folder."
+    $CheckGPG = $false
+
+    Write-Host "Do you want to continue without GPG signature verification? (y/n)"
+    $answer = Read-Host
+    if ($answer -ne "y") {
+        exit 1
+    }
+}
+
+if ($CheckGPG) {
+    gpg --verify $SignatureFile $SignedFile
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "GPG signature verification failed. Aborting the process."
+        exit 1
+    }
+
+    # Load the JSON file with the file hashes
+    $FileHashes = (Get-Content -Path $SignedFile | ConvertFrom-Json).Files
+
+    function Verify-FileHash($FilePath, $ExpectedHash) {
+        $ActualHash = (Get-FileHash -Path $FilePath -Algorithm SHA512).Hash
+        return $ActualHash -eq $ExpectedHash
+    }
+
+    # Verify the hash of the timescale backup files
+    $TimescaleFolderPath = Join-Path $BackupPath "timescale"
+    $BackupFiles = Get-ChildItem -Path $TimescaleFolderPath -Recurse -File
+    $BackupFilesCnt = $BackupFiles.Count
+
+    Write-Host "Verifying $BackupFilesCnt files..."
+    if ($BackupFilesCnt -eq 0) {
+        Write-Host "No files found in the timescale folder. Aborting the process."
+        exit 1
+    }
+
+    foreach ($BackupFile in $BackupFiles) {
+        $RelativePath = $BackupFile.FullName.Substring($TimescaleFolderPath.Length + 1)
+        $ExpectedHash = ($FileHashes | Where-Object { $_.Path -eq "timescale\$RelativePath" }).Hash
+
+        if (!$ExpectedHash) {
+            Write-Host "File $RelativePath is not part of the hash database. Aborting the process."
+            exit 1
+        }
+
+        if ($CheckGPG -and !(Verify-FileHash -FilePath $BackupFile.FullName -ExpectedHash $ExpectedHash)) {
+            Write-Host "Hash verification failed for $RelativePath. Aborting the process."
+            exit 1
+        }
+    }
+    Write-Host "Verified $BackupFilesCnt files."
+    Write-Host "GPG signature and hash verification passed."
+}
+
+
+
 
 # Read the version.json file to get the postgresql and timescaledb versions
 $versionInfo = Get-Content "$BackupPath\timescale\version.json" | ConvertFrom-Json
