@@ -4,21 +4,14 @@
 This repo contains utilities for backing up and restoring UMH data.
 
 It will back up the following:
- `
 	- All Node-RED flows
- `
 	- All Grafana dashboards
- `
 	- The current Helm values for the united-manufacturing-hub chart
- `
 	- All timescale tables used by the united-manufacturing-hub chart
 
 We do *NOT* back up:
- `
 	- Other grafana data like Alerts, Users, ...
- `
 	- Timescale data unrelated to the united-manufacturing-hub chart
- `
 	- Any other data in the cluster
 
 ### Backup
