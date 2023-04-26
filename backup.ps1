@@ -66,6 +66,9 @@ if ($SkipDiskSpaceCheck) {
     Write-Host "Calculating approximate size of the backup"
     $env:PGPASSWORD = $DatabasePassword
     $connectionString = "postgres://${DatabaseUser}:${Password}@${IP}:${DatabasePort}/${DatabaseDatabase}?sslmode=require"
+    $cmdAnalyze = "ANALYZE;"
+    psql -c $cmdAnalyze $connectionString | Out-Null
+
     $cmd = "SELECT pg_size_pretty(pg_database_size('${DatabaseDatabase}'));"
     psql -c $cmd $connectionString
     $connectionString = ""

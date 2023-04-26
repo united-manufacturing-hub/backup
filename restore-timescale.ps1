@@ -234,6 +234,10 @@ $erroredCommands | ForEach-Object {
 
 
 Write-Host "Restored post-data"
+
+$cmdAnalyze = "ANALYZE;"
+psql -c $cmdAnalyze $connectionStringPG | Out-Null
+
 Write-Host "Restored database $Database"
 
 $env:PGPASSWORD = ""
