@@ -97,10 +97,10 @@ $BackupFolderName = "${OutputPath}/backup_${CurrentDateTimestamp}"
 New-Item -Path $BackupFolderName -ItemType Directory -Force | Out-Null
 
 # Move the backup files to the backup folder
-Move-Item -Path "./grafana_backup.7z" -Destination "./${BackupFolderName}/grafana_backup.7z"
-Move-Item -Path "./helm_backup.7z" -Destination "./${BackupFolderName}/helm_backup.7z"
-Move-Item -Path "./nodered_backup.7z" -Destination "./${BackupFolderName}/nodered_backup.7z"
-Move-Item -Path "./timescale" -Destination "./${BackupFolderName}/timescale"
+Move-Item -Path "${OutputPath}/grafana_backup.7z" -Destination "${BackupFolderName}/grafana_backup.7z"
+Move-Item -Path "${OutputPath}/helm_backup.7z" -Destination "${BackupFolderName}/helm_backup.7z"
+Move-Item -Path "${OutputPath}/nodered_backup.7z" -Destination "${BackupFolderName}/nodered_backup.7z"
+Move-Item -Path "${OutputPath}/timescale" -Destination "${BackupFolderName}/timescale"
 
 Write-Host "Backup completed in $((Get-Date) - $Now) and saved to ${BackupFolderName}"
 
