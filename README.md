@@ -30,7 +30,6 @@ TODO: Add link to documentation
 .\backup.ps1 `
 	-IP <IP_OF_THE_SERVER_TO_BACK_UP> `
 	-GrafanaToken <YOUR_GRAFANA_API_ADMIN_TOKEN> `
-	-DatabasePassword changeme `
 	-KubeconfigPath <PATH_TO_KUBECONFIG> `
 	-OutputPath <PATH_TO_LOTS_OF_SPACE> `
 ```

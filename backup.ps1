@@ -25,8 +25,8 @@ param(
     [Parameter(Mandatory=$true)] # Grafana API token
     [string]$GrafanaToken = "",
 
-    [Parameter(Mandatory=$true)] # Password of the database user. If default user (factoryinsight) is used, the default password is changeme
-    [string]$DatabasePassword = "",
+    [Parameter(Mandatory=$false)] # Password of the database user. If default user (factoryinsight) is used, the default password is changeme
+    [string]$DatabasePassword = "changeme",
 
     [Parameter(Mandatory=$false)] # External port of the database
     [int]$DatabasePort = 5432,
