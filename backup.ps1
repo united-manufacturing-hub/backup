@@ -50,7 +50,13 @@ param(
     [int]$ParallelJobs = 4,
 
     [Parameter(Mandatory=$false)] # Days per job
-    [int]$DaysPerJob = 7
+    [int]$DaysPerJob = 7,
+
+    [Parameter(Mandatory=$false)] # Enable GPG signing
+    [bool]$EnableGpgSigning = $false,
+
+    [Parameter(Mandatory=$false)] # GPG signing key ID
+    [string]$GpgSigningKeyId = ""
 )
 
 $Now = Get-Date
@@ -110,6 +116,36 @@ Move-Item -Path "${OutputPath}/grafana_backup.7z" -Destination "${BackupFolderNa
 Move-Item -Path "${OutputPath}/helm_backup.7z" -Destination "${BackupFolderName}/helm_backup.7z"
 Move-Item -Path "${OutputPath}/nodered_backup.7z" -Destination "${BackupFolderName}/nodered_backup.7z"
 Move-Item -Path "${OutputPath}/timescale" -Destination "${BackupFolderName}/timescale"
+
+if ($EnableGpgSigning){
+    # Get the current UNIX timestamp
+    $UnixTimestamp = [DateTimeOffset]::Now.ToUnixTimeSeconds()
+
+    # Create an empty list to store file hashes and paths
+    $FileHashList = @()
+
+    # Iterate through the files in the backup folder and its subfolders
+    Get-ChildItem -Path $BackupFolderName -File -Recurse | ForEach-Object {
+        $RelativePath = $_.FullName.Substring($BackupFolderName.Length + 1)
+        $Hash = (Get-FileHash -Path $_.FullName -Algorithm SHA512).Hash
+        $FileHashList += @{
+            Path = $RelativePath
+            Hash = $Hash
+        }
+    }
+
+    # Create an object containing the file hash list and the UNIX timestamp
+    $OutputObject = @{
+        Timestamp = $UnixTimestamp
+        Files = $FileHashList
+    }
+
+    # Export the object to a JSON file
+    $OutputObject | ConvertTo-Json -Depth 100 | Set-Content -Path $OutputFile
+
+    # Sign the JSON file using GPG
+    gpg --output "$OutputFile.sig" --detach-sig --local-user $GpgSigningKeyId $OutputFile
+}
 
 Write-Host "Backup completed in $((Get-Date) - $Now) and saved to ${BackupFolderName}"
 
