@@ -17,6 +17,18 @@ if (!(Test-Path $BackupPath)) {
     exit 1
 }
 
+$IsEncrypted = $false
+# Check if grafana_backup.7z.gpg exists and if so, decrypt it
+if (Test-Path "$BackupPath\helm_backup.7z.gpg") {
+    $IsEncrypted = $true
+    Write-Host "Decrypting helm_backup.7z.gpg..."
+    gpg --decrypt --output "$BackupPath\helm_backup.7z" "$BackupPath\helm_backup.7z.gpg"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "GPG decryption failed. Aborting the process."
+        exit 1
+    }
+}
+
 if (!(Test-Path "$BackupPath\helm_backup.7z")) {
     Write-Host "The backup folder $BackupPath does not contain a helm_backup.7z file."
     exit 1
@@ -83,3 +95,8 @@ $SevenZipPath = ".\_tools\7z.exe"
 
 # Remove unpackaged helm folder
 Remove-Item -Path $UnpackagedHelmPath -Recurse -Force
+
+if ($IsEncrypted){
+    # Remove the decrypted 7z file
+    Remove-Item -Path "${BackupPath}\helm_backup.7z" -Recurse -Force | Out-Nulls
+}

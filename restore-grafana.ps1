@@ -29,6 +29,18 @@ if (!(Test-Path $BackupPath)) {
     exit 1
 }
 
+$IsEncrypted = $false
+# Check if grafana_backup.7z.gpg exists and if so, decrypt it
+if (Test-Path "$BackupPath\grafana_backup.7z.gpg") {
+    $IsEncrypted = $true
+    Write-Host "Decrypting grafana_backup.7z.gpg..."
+    gpg --decrypt --output "$BackupPath\grafana_backup.7z" "$BackupPath\grafana_backup.7z.gpg"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "GPG decryption failed. Aborting the process."
+        exit 1
+    }
+}
+
 if (!(Test-Path "$BackupPath\grafana_backup.7z")) {
     Write-Host "The backup folder $BackupPath does not contain a grafana_backup.7z file."
     exit 1
@@ -216,3 +228,8 @@ foreach ($jsonFile in $jsonFiles) {
 
 # Delete the unpackaged grafana folder
 Remove-Item -Path $UnpackagedgrafanaPath -Recurse -Force
+
+if ($IsEncrypted){
+    # Remove the decrypted 7z file
+    Remove-Item -Path "${BackupPath}\grafana_backup.7z" -Recurse -Force | Out-Nulls
+}

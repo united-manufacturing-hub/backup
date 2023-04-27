@@ -56,7 +56,16 @@ param(
     [bool]$EnableGpgSigning = $false,
 
     [Parameter(Mandatory=$false)] # GPG signing key ID
-    [string]$GpgSigningKeyId = ""
+    [string]$GpgSigningKeyId = "",
+
+    [Parameter(Mandatory=$false)] # Enable GPG encryption
+    [bool]$EnableGpgEncryption = $false,
+
+    [Parameter(Mandatory=$false)] # GPG encryption key ID
+    [string]$GpgEncryptionKeyId = "",
+
+    [Parameter(Mandatory=$false)] # Skip GPG questions
+    [bool]$SkipGpgQuestions = $false
 )
 
 $Now = Get-Date
@@ -100,6 +109,48 @@ if (-not (Test-Path $OutputPath)) {
     New-Item -Path $OutputPath -ItemType Directory -Force | Out-Null
 }
 
+if ($EnableGpgEncryption -or $EnableGpgSigning){
+    # Check if GPG is in path
+    $GpgPath = Get-Command gpg -ErrorAction SilentlyContinue
+    if ($GpgPath -eq $null)
+    {
+        Write-Host "GPG is not in path, please install it and try again"
+        exit 1
+    }
+}
+
+if ($SkipGpgQuestions)
+{
+    Write-Host "Skipping GPG questions"
+}else
+{
+
+    # Request GPG signing and encryption keys if they are not set and signing/encryption is enabled
+    if ($EnableGpgSigning -and $GpgSigningKeyId -eq "")
+    {
+        Write-Host "Please enter the GPG signing key ID"
+        $GpgSigningKeyId = Read-Host
+    }
+
+    if ($EnableGpgEncryption -and $GpgEncryptionKeyId -eq "")
+    {
+        Write-Host "Please enter the GPG encryption key ID"
+        $GpgEncryptionKeyId = Read-Host
+    }
+
+    if ($EnableGpgEncryption)
+    {
+        Write-Host "[WARN] GPG encryption is enabled, if you lose the key, you will not be able to decrypt the backup"
+        Write-Host "Do you want to continue? (y/N)"
+        $answer = Read-Host
+        if ($answer -ne "y")
+        {
+            Write-Host "Aborting backup"
+            exit 1
+        }
+    }
+}
+
 # Run the backup-grafana.ps1 script with, using $IP and $GrafanaPort as first param and $GrafanaToken as second param
 & ./backup-grafana.ps1 -FullUrl "http://${IP}:${GrafanaPort}" -Token ${GrafanaToken} -OutputPath ${OutputPath}
 & ./backup-helm.ps1 -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath}
@@ -118,6 +169,7 @@ Move-Item -Path "${OutputPath}/nodered_backup.7z" -Destination "${BackupFolderNa
 Move-Item -Path "${OutputPath}/timescale" -Destination "${BackupFolderName}/timescale"
 
 if ($EnableGpgSigning){
+    Write-Host "Signing backup"
     $OutputFile = Join-Path $BackupFolderName "file_hashes.json"
     # Get the current UNIX timestamp
     $UnixTimestamp = [DateTimeOffset]::Now.ToUnixTimeSeconds()
@@ -146,7 +198,29 @@ if ($EnableGpgSigning){
 
     # Sign the JSON file using GPG
     gpg --output "$OutputFile.sig" --detach-sig --local-user $GpgSigningKeyId $OutputFile
+    Write-Host "Signed backup"
 }
+
+if ($EnableGpgEncryption){
+    Write-Host "Encrypting backup"
+    # For each file in the backup folder, encrypt it using GPG
+    Get-ChildItem -Path $BackupFolderName -File -Recurse | ForEach-Object {
+        # Skip file_hashes.json and file_hashes.json.sig
+        # There are two information leaks here:
+        # 1. The file names are not encrypted
+        # 2. The file size is not encrypted
+        # Both of them dont really matter.
+        if ($_.Name -eq "file_hashes.json" -or $_.Name -eq "file_hashes.json.sig") {
+            return
+        }
+
+        gpg --output "$($_.FullName).gpg" --encrypt --recipient $GpgEncryptionKeyId $_.FullName
+        Remove-Item -Path $_.FullName
+    }
+    Write-Host "Encrypted backup"
+}
+
+
 
 Write-Host "Backup completed in $((Get-Date) - $Now) and saved to ${BackupFolderName}"
 

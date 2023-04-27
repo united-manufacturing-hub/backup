@@ -22,6 +22,18 @@ if (!(Test-Path $BackupPath)) {
     exit 1
 }
 
+$IsEncrypted = $false
+# Check if grafana_backup.7z.gpg exists and if so, decrypt it
+if (Test-Path "$BackupPath\nodered_backup.7z.gpg") {
+    $IsEncrypted = $true
+    Write-Host "Decrypting nodered_backup.7z.gpg..."
+    gpg --decrypt --output "$BackupPath\nodered_backup.7z" "$BackupPath\nodered_backup.7z.gpg"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "GPG decryption failed. Aborting the process."
+        exit 1
+    }
+}
+
 if (!(Test-Path "$BackupPath\nodered_backup.7z")) {
     Write-Host "The backup folder $BackupPath does not contain a nodered_backup.7z file."
     exit 1
@@ -96,3 +108,8 @@ Write-Host "Restored config files to the server. Restarting nodered pod."
 
 # Remove unpackaged nodered folder
 Remove-Item -Path $UnpackagedNodeRedPath -Recurse -Force
+
+if ($IsEncrypted){
+    # Remove the decrypted 7z file
+    Remove-Item -Path "${BackupPath}\nodered_backup.7z" -Recurse -Force | Out-Nulls
+}
