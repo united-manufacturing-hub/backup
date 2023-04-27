@@ -43,6 +43,16 @@ if (!(Test-Path $SignedFile) -or !(Test-Path $SignatureFile)) {
     }
 }
 
+function Decrypt-File($InputFile, $OutputFile) {
+    gpg --decrypt --output $OutputFile $InputFile > $null 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "GPG decryption failed for $InputFile. Aborting the process."
+        exit 1
+    }
+    return $OutputFile
+}
+
+
 if ($CheckGPG) {
     gpg --verify $SignatureFile $SignedFile
     if ($LASTEXITCODE -ne 0) {
@@ -54,7 +64,20 @@ if ($CheckGPG) {
     $FileHashes = (Get-Content -Path $SignedFile | ConvertFrom-Json).Files
 
     function Verify-FileHash($FilePath, $ExpectedHash) {
+        $IsEncrypted = $false
+        # Check if file ends with .gpg
+        if ($FilePath.EndsWith(".gpg")) {
+            $IsEncrypted = $true
+            # New path is the same without the .gpg extension
+            $OutFile = $FilePath.Substring(0, $FilePath.Length - 4)
+            # Decrypt the file
+            $FilePath = Decrypt-File -InputFile $FilePath -OutputFile $OutFile
+        }
         $ActualHash = (Get-FileHash -Path $FilePath -Algorithm SHA512).Hash
+        if ($IsEncrypted){
+            # Delete the decrypted file
+            Remove-Item $FilePath
+        }
         return $ActualHash -eq $ExpectedHash
     }
 
@@ -71,10 +94,16 @@ if ($CheckGPG) {
 
     foreach ($BackupFile in $BackupFiles) {
         $RelativePath = $BackupFile.FullName.Substring($TimescaleFolderPath.Length + 1)
-        $ExpectedHash = ($FileHashes | Where-Object { $_.Path -eq "timescale\$RelativePath" }).Hash
+        Write-Host "Verifing ${BackupFile}"
+        # If $RelativePath ends with .gpg, remove the extension for the hash lookup
+        $ActualRelativePath = $RelativePath
+        if ($RelativePath.EndsWith(".gpg")) {
+            $ActualRelativePath = $RelativePath.Substring(0, $RelativePath.Length - 4)
+        }
+        $ExpectedHash = ($FileHashes | Where-Object { $_.Path -eq "timescale\$ActualRelativePath" }).Hash
 
         if (!$ExpectedHash) {
-            Write-Host "File $RelativePath is not part of the hash database. Aborting the process."
+            Write-Host "File $ActualRelativePath is not part of the hash database. Aborting the process."
             exit 1
         }
 
@@ -88,10 +117,23 @@ if ($CheckGPG) {
 }
 
 
+$AssumeEncryption = $false
+# Check if version.json.gpg exists
+if (Test-Path "$BackupPath\timescale\version.json.gpg") {
+    $AssumeEncryption = $true
+    Write-Host "Found encrypted version.json, assuming encryption"
+}
 
-
-# Read the version.json file to get the postgresql and timescaledb versions
-$versionInfo = Get-Content "$BackupPath\timescale\version.json" | ConvertFrom-Json
+if ($AssumeEncryption){
+    # Decrypt the version.json file
+    Decrypt-File -InputFile "$BackupPath\timescale\version.json.gpg" -OutputFile "$BackupPath\timescale\version.json"
+    $versionInfo = Get-Content "$BackupPath\timescale\version.json" | ConvertFrom-Json
+    Remove-Item "$BackupPath\timescale\version.json"
+}else
+{
+    # Read the version.json file to get the postgresql and timescaledb versions
+    $versionInfo = Get-Content "$BackupPath\timescale\version.json" | ConvertFrom-Json
+}
 
 # Connect to the source database
 $connectionStringPG = "postgres://postgres:${PatroniSuperUserPassword}@${Ip}:${Port}/postgres?sslmode=require"
@@ -193,8 +235,15 @@ $env:PGPASSWORD = $PatroniSuperUserPassword
 Write-Host "Restoring database $Database..."
 ## Restore pre-data
 Write-Host "Restoring pre-data..."
-# pg_restore -U postgres -w -h <HOST> -p <PORT> --no-owner -Fc -v -d tsdb dump_pre_data.bak
-pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data.bak"
+if ($AssumeEncryption){
+    # Decrypt the dump_pre_data.bak file
+    Decrypt-File -InputFile "$BackupPath\timescale\dump_pre_data.bak.gpg" -OutputFile "$BackupPath\timescale\dump_pre_data.bak"
+    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data.bak"
+    Remove-Item "$BackupPath\timescale\dump_pre_data.bak"
+}else
+{
+    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data.bak"
+}
 
 ## Restore hypertables
 Write-Host "Restoring hypertables..."
@@ -233,11 +282,22 @@ $SevenZipPath = ".\_tools\7z.exe"
 ### Create temp folder (./tables)
 New-Item -ItemType Directory -Force -Path ".\tables" | Out-Null
 $files = Get-ChildItem "$BackupPath\timescale\tables" -Filter *.7z
+if ($AssumeEncryption){
+    $files = Get-ChildItem "$BackupPath\timescale\tables" -Filter *.7z.gpg
+}
 foreach ($file in $files) {
     # Delete all file from the temp folder
     Remove-Item -Path ".\tables\*" -Force
     Write-Host "Restoring file $file..."
     $fileName = $file.Name
+
+    if ($AssumeEncryption){
+        # Decrypt the file (don't forget to remove the .gpg extension)
+        $fileNameWithoutExtension = $fileName -replace "\.gpg", ''
+        Decrypt-File -InputFile "$BackupPath\timescale\tables\$fileName" -OutputFile "$BackupPath\timescale\tables\$fileNameWithoutExtension"
+        $fileName = $fileNameWithoutExtension
+    }
+
     & $SevenZipPath x "$BackupPath\timescale\tables\$fileName" -o".\tables" -y | Out-Null
 
     ### For each file in the temp folder
@@ -247,8 +307,8 @@ foreach ($file in $files) {
         ## Get tableName, by removing the .csv extension
         $tableName = $fileNameX -replace "\.csv", ''
         ### Also remove the time suffix (_YYYY-MM-DD_HH-MM-SS.ffffff)
-        $tableName = $tableName -replace "_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\.[0-9]{6}", ''
         Write-Host "Restoring table $tableName..."
+        $tableName = $tableName -replace "_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\.[0-9]{6}", ''
         ### Restore the table
 
         if ($canUsePCopy){
@@ -270,6 +330,11 @@ foreach ($file in $files) {
             psql -t -c $copyQuery $connectionStringFC
         }
     }
+
+    if ($AssumeEncryption){
+        # Remove the decrypted file
+        Remove-Item "$BackupPath\timescale\tables\$fileName"
+    }
 }
 # Remove the temp folder
 Remove-Item -Path ".\tables" -Force -Recurse
@@ -278,8 +343,15 @@ Write-Host "Restored Tables"
 
 ## Restore post-data
 Write-Host "Restoring post-data..."
-### pg_restore -U tsdbadmin -w -h <HOST> -p <PORT> --no-owner -Fc -v -d tsdb dump_post_data.bak
-$restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data.bak" 2>&1
+$restoreOutput = ""
+if ($AssumeEncryption){
+    Decrypt-File -InputFile "$BackupPath\timescale\dump_post_data.bak.gpg" -OutputFile "$BackupPath\timescale\dump_post_data.bak"
+    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data.bak" 2>&1
+    Remove-Item "$BackupPath\timescale\dump_post_data.bak"
+}else
+{
+    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data.bak" 2>&1
+}
 
 $pattern = 'ALTER TABLE ONLY public.\w+\s+.*?;'
 $matches = [regex]::Matches($restoreOutput, $pattern)
