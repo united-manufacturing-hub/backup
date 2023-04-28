@@ -3,14 +3,22 @@ param(
     [string]$OutputPath = "."
 )
 
+if (!$KubeconfigPath) {
+    $KubeconfigPath = Read-Host -Prompt "Enter the Path to your kubeconfig:"
+}
+
+if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
+    Write-Host "Module 'ThreadJob' is already installed."
+}else{
+    Write-Verbose "Installing module 'ThreadJob' on demand..."
+    Install-Module -ErrorAction Stop -Scope CurrentUser ThreadJob
+}
+
 function SaveKubeFiles($kubeconfigPath, $namespace, $podName, $srcPath, $destPath) {
     Write-Host "Saving $srcPath to $destPath"
     .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $namespace cp "${podName}:${srcPath}" $destPath
 }
 
-if (!$KubeconfigPath) {
-    $KubeconfigPath = Read-Host -Prompt "Enter the Path to your kubeconfig:"
-}
 
 $ArchiveName = "${OutputPath}/nodered_backup.7z"
 $Namespace = "united-manufacturing-hub"

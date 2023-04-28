@@ -4,6 +4,13 @@ param(
     [string]$BackupPath = ""
 )
 
+if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
+    Write-Host "Module 'ThreadJob' is already installed."
+}else{
+    Write-Verbose "Installing module 'ThreadJob' on demand..."
+    Install-Module -ErrorAction Stop -Scope CurrentUser ThreadJob
+}
+
 # Check if required cmdlets are available
 $requiredCmdlets = @("Invoke-RestMethod", "ConvertFrom-Json", "Compress-Archive")
 $missingCmdlets = $requiredCmdlets | Where-Object { -not (Get-Command -Name $_ -ErrorAction SilentlyContinue) }

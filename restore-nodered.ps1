@@ -8,6 +8,13 @@ function KubectlCopyToServer($kubeconfigPath, $namespace, $srcPath, $podName, $d
     .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $namespace cp $srcPath "${podName}:${destPath}" | Out-Null
 }
 
+if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
+    Write-Host "Module 'ThreadJob' is already installed."
+}else{
+    Write-Verbose "Installing module 'ThreadJob' on demand..."
+    Install-Module -ErrorAction Stop -Scope CurrentUser ThreadJob
+}
+
 if (!$BackupPath) {
     $BackupPath = Read-Host -Prompt "Enter the Path to your backup folder:"
 }

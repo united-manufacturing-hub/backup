@@ -17,6 +17,13 @@ if (!$Password) {
     $Password = Read-Host -Prompt "Enter the password of your postgresql ($User) user:"
 }
 
+if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
+    Write-Host "Module 'ThreadJob' is already installed."
+}else{
+    Write-Verbose "Installing module 'ThreadJob' on demand..."
+    Install-Module -ErrorAction Stop -Scope CurrentUser ThreadJob
+}
+
 $ArchiveName = "${OutputPath}/timescale"
 if (Test-Path $ArchiveName) {
     $overwrite = Read-Host -Prompt "The folder $ArchiveName already exists. Do you want to overwrite it? (y/N)"

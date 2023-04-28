@@ -16,6 +16,12 @@ if (!$PatroniSuperUserPassword) {
     $PatroniSuperUserPassword = Read-Host -Prompt "Enter the password of your postgresql user:"
 }
 
+if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
+    Write-Host "Module 'ThreadJob' is already installed."
+}else{
+    Write-Verbose "Installing module 'ThreadJob' on demand..."
+    Install-Module -ErrorAction Stop -Scope CurrentUser ThreadJob
+}
 
 # Check if the backup folder exists and contains helm_backup.7z
 if (!(Test-Path $BackupPath)) {

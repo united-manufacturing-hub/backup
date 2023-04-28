@@ -3,12 +3,19 @@ param(
     [string]$OutputPath = "."
 )
 
-function GetHelmValues($kubeconfigPath, $namespace, $releaseName, $outputFile) {
-    .\_tools\helm.exe --kubeconfig $kubeconfigPath get values -n $namespace $releaseName --output yaml | Out-File $outputFile
-}
-
 if (!$KubeconfigPath) {
     $KubeconfigPath = Read-Host -Prompt "Enter the Path to your kubeconfig:"
+}
+
+if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
+    Write-Host "Module 'ThreadJob' is already installed."
+}else{
+    Write-Verbose "Installing module 'ThreadJob' on demand..."
+    Install-Module -ErrorAction Stop -Scope CurrentUser ThreadJob
+}
+
+function GetHelmValues($kubeconfigPath, $namespace, $releaseName, $outputFile) {
+    .\_tools\helm.exe --kubeconfig $kubeconfigPath get values -n $namespace $releaseName --output yaml | Out-File $outputFile
 }
 
 $ArchiveName = "${OutputPath}/helm_backup.7z"
