@@ -54,8 +54,8 @@ if (!(Test-Path "$BackupPath\grafana_backup.7z")) {
 }
 
 # Verify GPG signature
-$SignedFile = Join-Path $BackupFolderName "file_hashes.json"
-$SignatureFile = Join-Path $BackupFolderName "file_hashes.json.sig"
+$SignedFile = Join-Path $BackupPath "file_hashes.json"
+$SignatureFile = Join-Path $BackupPath "file_hashes.json.sig"
 
 $CheckGPG = $true
 if (!(Test-Path $SignedFile) -or !(Test-Path $SignatureFile)) {
