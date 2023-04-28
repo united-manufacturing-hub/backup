@@ -67,7 +67,9 @@ param(
     [bool]$SkipGpgQuestions = $false
 )
 
-if ($PSVersionTable.PSVersion -lt 6 -and -not (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob)) {
+if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
+    Write-Host "Module 'ThreadJob' is already installed."
+}else{
     Write-Verbose "Installing module 'ThreadJob' on demand..."
     Install-Module -ErrorAction Stop -Scope CurrentUser ThreadJob
 }
