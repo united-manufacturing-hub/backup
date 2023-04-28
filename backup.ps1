@@ -14,7 +14,6 @@
 .NOTES
     Author: UMH Systems GmbH
 #>
-
 param(
     [Parameter(Mandatory=$true)] # IP of the cluster
     [string]$IP = "",
@@ -67,6 +66,15 @@ param(
     [Parameter(Mandatory=$false)] # Skip GPG questions
     [bool]$SkipGpgQuestions = $false
 )
+
+if ($PSVersionTable.PSVersion -lt 6 -and -not (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob)) {
+    Write-Verbose "Installing module 'ThreadJob' on demand..."
+    Install-Module -ErrorAction Stop -Scope CurrentUser ThreadJob
+}
+
+# Getting here means that Start-ThreadJob is now available.
+Get-Command -Type Cmdlet Start-ThreadJob
+
 
 $Now = Get-Date
 Write-Host "Starting backup at $Now"
