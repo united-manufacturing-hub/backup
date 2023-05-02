@@ -204,7 +204,7 @@ if ($EnableGpgSigning){
     }
 
     # Export the object to a JSON file
-    $OutputObject | ConvertTo-Json -Depth 100 | Set-Content -Path $OutputFile
+    $OutputObject | ConvertTo-Json  | Set-Content -Path $OutputFile
 
     # Sign the JSON file using GPG
     gpg --output "$OutputFile.sig" --detach-sig --local-user $GpgSigningKeyId $OutputFile

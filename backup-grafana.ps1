@@ -63,8 +63,8 @@ foreach ($Dash in $DashList) {
     Write-Host "Processing dashboard $($DashboardCounter)/$($TotalDashboards) - UID: $Dash"
     Invoke-RestMethod -Uri "$FullUrl/api/search?query=&" -Headers $Headers -Method Get | Out-Null
     $DashPath = "$InPath/$Dash.json"
-    Invoke-RestMethod -Uri "$FullUrl/api/dashboards/uid/$Dash" -Headers $Headers -Method Get | ConvertTo-Json -Depth 100 | Set-Content $DashPath
-    (Get-Content $DashPath | ConvertFrom-Json).dashboard | ConvertTo-Json -Depth 100 | Set-Content "$InPath/dashboard.json"
+    Invoke-RestMethod -Uri "$FullUrl/api/dashboards/uid/$Dash" -Headers $Headers -Method Get | ConvertTo-Json  | Set-Content $DashPath
+    (Get-Content $DashPath | ConvertFrom-Json).dashboard | ConvertTo-Json  | Set-Content "$InPath/dashboard.json"
     $Title = (Get-Content $DashPath | ConvertFrom-Json).dashboard.title
     $Folder = "${OutputPath}/grafana/" + (Get-Content $DashPath | ConvertFrom-Json).meta.folderTitle
     New-Item -Path $Folder -ItemType Directory -Force | Out-Null

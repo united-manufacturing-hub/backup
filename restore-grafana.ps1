@@ -121,7 +121,7 @@ $jsonFiles = Get-ChildItem -Path "$UnpackagedgrafanaPath" -Recurse -Filter "*.js
 # Process each JSON file
 foreach ($jsonFile in $jsonFiles) {
     # Read the JSON file and convert it to a PowerShell object
-    $jsonContent = Get-Content -Path $jsonFile.FullName -Raw | ConvertFrom-Json -Depth 100
+    $jsonContent = Get-Content -Path $jsonFile.FullName -Raw | ConvertFrom-Json
 
     # Function to process JSON objects recursively
     function Process-JsonObject {
@@ -155,7 +155,7 @@ foreach ($jsonFile in $jsonFiles) {
     Process-JsonObject $jsonContent
 
     # Save the updated JSON content back to the original file
-    $jsonContent | ConvertTo-Json -Depth 100 | Set-Content -Path $jsonFile.FullName
+    $jsonContent | ConvertTo-Json  | Set-Content -Path $jsonFile.FullName
 }
 
 # Get the unique folder names from the JSON file paths
@@ -185,7 +185,7 @@ foreach ($folderName in $folderNames) {
         $folderCreationApiUrl = "$FullUrl/api/folders"
         $folderCreationBody = @{
             "title" = $folderName
-        } | ConvertTo-Json -Depth 100
+        } | ConvertTo-Json
 
         $folderCreationResponse = Invoke-RestMethod -Uri $folderCreationApiUrl -Method Post -Headers $headers -Body $folderCreationBody
 
@@ -205,7 +205,7 @@ foreach ($jsonFile in $jsonFiles) {
     }
 
     # Read the JSON file content
-    $jsonFileContent = Get-Content -Path $jsonFile.FullName -Raw | ConvertFrom-Json -Depth 100
+    $jsonFileContent = Get-Content -Path $jsonFile.FullName -Raw | ConvertFrom-Json
 
     # Set the id field to null
     $jsonFileContent.id = $null
@@ -222,7 +222,7 @@ foreach ($jsonFile in $jsonFiles) {
         $dashboardPostBody["folderUid"] = $folderUid
     }
 
-    $dashboardPostBody = $dashboardPostBody | ConvertTo-Json -Depth 100
+    $dashboardPostBody = $dashboardPostBody | ConvertTo-Json
 
     # Post the JSON file to the /api/dashboards/db endpoint
     $dashboardPostApiUrl = "$FullUrl/api/dashboards/db"
