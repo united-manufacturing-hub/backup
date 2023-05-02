@@ -115,6 +115,9 @@ foreach ($datasource in $datasourcesJson) {
     $typeUidMap[$datasource.type] = $datasource.uid
 }
 
+Write-Host "Type-UID map:" -ForegroundColor Yellow
+Write-Host ($typeUidMap | ConvertTo-Json)
+
 # Recursively find all JSON files in the 'grafana' folder
 $jsonFiles = Get-ChildItem -Path "$UnpackagedgrafanaPath" -Recurse -Filter "*.json"
 
@@ -143,6 +146,7 @@ foreach ($jsonFile in $jsonFiles) {
                 $value = $InputObject.$($property.Name)
                 if ($property.Name -eq "datasource" -and $value.type -and $value.uid) {
                     # If the "datasource" key is found, update the "uid" using the map
+                    Write-Host "Updating uid for $($value.type) to $($typeUidMap[$value.type])"
                     $value.uid = $typeUidMap[$value.type]
                 }
                 # Recursively process the value of the property
@@ -163,6 +167,7 @@ $folderNames = $jsonFiles | ForEach-Object { Split-Path -Path $_.DirectoryName -
 
 # Initialize a new map to store the folder name and the returned uid
 $folderUidMap = @{}
+Write-Host "Folder-UID map:" -ForegroundColor Yellow
 
 # Get the existing folders from the API
 $getFoldersApiUrl = "$FullUrl/api/folders?limit=1000"
@@ -191,6 +196,7 @@ foreach ($folderName in $folderNames) {
 
         # Add the folder name and the returned uid to the map
         $folderUidMap[$folderName] = $folderCreationResponse.uid
+        Write-Host "Created folder '$folderName' with uid '$($folderCreationResponse.uid)'"
     }
 }
 
@@ -220,13 +226,16 @@ foreach ($jsonFile in $jsonFiles) {
     # Set the folderUid only if it's not null
     if ($folderUid -ne $null) {
         $dashboardPostBody["folderUid"] = $folderUid
+        Write-Host "Setting folderUid to '$folderUid' for '$($jsonFile.Name)'"
     }
 
     $dashboardPostBody = $dashboardPostBody | ConvertTo-Json
 
     # Post the JSON file to the /api/dashboards/db endpoint
     $dashboardPostApiUrl = "$FullUrl/api/dashboards/db"
-    Invoke-RestMethod -Uri $dashboardPostApiUrl -Method Post -Headers $headers -Body $dashboardPostBody
+    $resp = Invoke-RestMethod -Uri $dashboardPostApiUrl -Method Post -Headers $headers -Body $dashboardPostBody
+    Write-Host "Imported '$($jsonFile.Name)' with uid '$($resp.uid)'"
+    Write-Host "Response: $($resp | ConvertTo-Json)"
 }
 
 # Delete the unpackaged grafana folder
