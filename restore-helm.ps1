@@ -1,15 +1,9 @@
 param(
+    [Parameter(Mandatory = $true)] # Path to the kubeconfig file
     [string]$KubeconfigPath = "",
+    [Parameter(Mandatory = $true)] # Path to the backup folder
     [string]$BackupPath = ""
 )
-
-if (!$BackupPath) {
-    $BackupPath = Read-Host -Prompt "Enter the Path to your backup folder:"
-}
-
-if (!$KubeconfigPath) {
-    $KubeconfigPath = Read-Host -Prompt "Enter the Path to your kubeconfig:"
-}
 
 if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
     Write-Host "Module 'ThreadJob' is already installed."

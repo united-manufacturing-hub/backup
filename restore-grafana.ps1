@@ -1,6 +1,9 @@
 param(
+    [Parameter(Mandatory=$true)] # Full URL of the Grafana instance
     [string]$FullUrl = "",
+    [Parameter(Mandatory=$true)] # Grafana API token
     [string]$Token = "",
+    [Parameter(Mandatory=$true)] # Path to the backup folder
     [string]$BackupPath = ""
 )
 
@@ -21,13 +24,6 @@ if ($missingCmdlets) {
     Write-Host ($missingCmdlets -join ", ") -ForegroundColor Red
     Write-Host "Please use PowerShell Core (version 6 or higher) to run this script." -ForegroundColor Red
     exit 1
-}
-
-if (!$FullUrl) {
-    $FullUrl = Read-Host -Prompt "Enter the Grafana URL:"
-}
-if (!$Token) {
-    $Token = Read-Host -Prompt "Enter the API token:"
 }
 
 # Check if the backup folder exists and contains helm_backup.7z

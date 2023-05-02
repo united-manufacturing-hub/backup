@@ -1,20 +1,19 @@
 param(
+    [Parameter(Mandatory = $true)] # IP of the cluster
     [string]$Ip = "",
+    [Parameter(Mandatory = $false)] # Port of the cluster
     [int]$Port = 5432,
+    [Parameter(Mandatory = $false)] # User of the cluster
     [string]$User = "factoryinsight",
+    [Parameter(Mandatory = $false)] # Database of the cluster
     [string]$Database = "factoryinsight",
+    [Parameter(Mandatory = $true)] # Path to the backup folder
     [string]$BackupPath = "",
+    [Parameter(Mandatory = $true)] # Password of the postgresql user
     [string]$PatroniSuperUserPassword = "",
+    [Parameter(Mandatory = $false)] # I know what I'm doing
     [Boolean]$IKnowWhatImDoing = $false
 )
-
-if (!$Ip) {
-    $Ip = Read-Host -Prompt "Enter the IP of your cluster:"
-}
-
-if (!$PatroniSuperUserPassword) {
-    $PatroniSuperUserPassword = Read-Host -Prompt "Enter the password of your postgresql user:"
-}
 
 if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
     Write-Host "Module 'ThreadJob' is already installed."

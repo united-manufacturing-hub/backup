@@ -1,5 +1,7 @@
 param(
+    [Parameter(Mandatory = $true)] # Path to the kubeconfig file
     [string]$KubeconfigPath = "",
+    [Parameter(Mandatory = $true)] # Path to the backup folder
     [string]$BackupPath = ""
 )
 
@@ -15,13 +17,6 @@ if (Get-Command -ErrorAction Ignore -Type Cmdlet Start-ThreadJob) {
     Install-Module -ErrorAction Stop -Scope CurrentUser ThreadJob
 }
 
-if (!$BackupPath) {
-    $BackupPath = Read-Host -Prompt "Enter the Path to your backup folder:"
-}
-
-if (!$KubeconfigPath) {
-    $KubeconfigPath = Read-Host -Prompt "Enter the Path to your kubeconfig:"
-}
 
 # Check if the backup folder exists and contains helm_backup.7z
 if (!(Test-Path $BackupPath)) {
