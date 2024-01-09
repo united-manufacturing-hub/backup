@@ -242,12 +242,12 @@ Write-Host "Restoring database $Database..."
 Write-Host "Restoring pre-data..."
 if ($AssumeEncryption){
     # Decrypt the dump_pre_data.bak file
-    Decrypt-File -InputFile "$BackupPath\timescale\dump_pre_data_factoryinsight.bak.gpg" -OutputFile "$BackupPath\timescale\dump_pre_data_factoryinsight.bak"
-    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data_factoryinsight.bak"
-    Remove-Item "$BackupPath\timescale\dump_pre_data_factoryinsight.bak"
+    Decrypt-File -InputFile "$BackupPath\timescale\dump_pre_data.bak.gpg" -OutputFile "$BackupPath\timescale\dump_pre_data.bak"
+    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data.bak"
+    Remove-Item "$BackupPath\timescale\dump_pre_data.bak"
 }else
 {
-    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data_factoryinsight.bak"
+    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data.bak"
 }
 
 ## Restore hypertables
@@ -286,29 +286,28 @@ $SevenZipPath = ".\_tools\7z.exe"
 ### For each .7z file in the backup folder\timescale\tables
 ### Create temp folder (./tables)
 New-Item -ItemType Directory -Force -Path ".\tables" | Out-Null
-New-Item -ItemType Directory -Force -Path ".\tables\factoryinsight" | Out-Null
-$files = Get-ChildItem "$BackupPath\timescale\tables\factoryinsight" -Filter *.7z
+$files = Get-ChildItem "$BackupPath\timescale\tables" -Filter *.7z
 if ($AssumeEncryption){
-    $files = Get-ChildItem "$BackupPath\timescale\tables\factoryinsight" -Filter *.7z.gpg
+    $files = Get-ChildItem "$BackupPath\timescale\tables" -Filter *.7z.gpg
 }
 foreach ($file in $files) {
     # Delete all file from the temp folder
-    Remove-Item -Path ".\tables\factoryinsight\*" -Force
+    Remove-Item -Path ".\tables\*" -Force
     Write-Host "Restoring file $file..."
     $fileName = $file.Name
 
     if ($AssumeEncryption){
         # Decrypt the file (don't forget to remove the .gpg extension)
         $fileNameWithoutExtension = $fileName -replace "\.gpg", ''
-        Decrypt-File -InputFile "$BackupPath\timescale\tables\factoryinsight\$fileName" -OutputFile "$BackupPath\timescale\tables\factoryinsight\$fileNameWithoutExtension"
+        Decrypt-File -InputFile "$BackupPath\timescale\tables\$fileName" -OutputFile "$BackupPath\timescale\tables\$fileNameWithoutExtension"
         $fileName = $fileNameWithoutExtension
     }
 
-    & $SevenZipPath x "$BackupPath\timescale\tables\factoryinsight\$fileName" -o".\tables\factoryinsight" -y | Out-Null
+    & $SevenZipPath x "$BackupPath\timescale\tables\$fileName" -o".\tables" -y | Out-Null
 
     ### For each file in the temp folder
-    $fx = Get-ChildItem ".\tables\factoryinsight" -Filter *.csv
-    Set-Location .\tables\factoryinsight
+    $fx = Get-ChildItem ".\tables" -Filter *.csv
+    Set-Location .\tables
     foreach ($fileX in $fx){
         $fileNameX = $fileX.Name
         ## Get tableName, by removing the .csv extension
@@ -338,11 +337,11 @@ foreach ($file in $files) {
         }
     }
 
-    Set-Location ..\..\
+    Set-Location ..\
 
     if ($AssumeEncryption){
         # Remove the decrypted file
-        Remove-Item "$BackupPath\timescale\tables\factoryinsight\$fileName"
+        Remove-Item "$BackupPath\timescale\tables\$fileName"
     }
 }
 # Remove the temp folder
@@ -354,12 +353,12 @@ Write-Host "Restored Tables"
 Write-Host "Restoring post-data..."
 $restoreOutput = ""
 if ($AssumeEncryption){
-    Decrypt-File -InputFile "$BackupPath\timescale\dump_post_data_factoryinsight.bak.gpg" -OutputFile "$BackupPath\timescale\dump_post_data_factoryinsight.bak"
-    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data_factoryinsight.bak" 2>&1
-    Remove-Item "$BackupPath\timescale\dump_post_data_factoryinsight.bak"
+    Decrypt-File -InputFile "$BackupPath\timescale\dump_post_data.bak.gpg" -OutputFile "$BackupPath\timescale\dump_post_data.bak"
+    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data.bak" 2>&1
+    Remove-Item "$BackupPath\timescale\dump_post_data.bak"
 }else
 {
-    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data_factoryinsight.bak" 2>&1
+    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data.bak" 2>&1
 }
 
 $pattern = 'ALTER TABLE ONLY public.\w+\s+.*?;'
