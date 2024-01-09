@@ -307,6 +307,7 @@ foreach ($file in $files) {
 
     ### For each file in the temp folder
     $fx = Get-ChildItem ".\tables" -Filter *.csv
+    Set-Location .\tables
     foreach ($fileX in $fx){
         $fileNameX = $fileX.Name
         ## Get tableName, by removing the .csv extension
@@ -335,6 +336,8 @@ foreach ($file in $files) {
             psql -t -c $copyQuery $connectionStringFC
         }
     }
+
+    Set-Location ..\
 
     if ($AssumeEncryption){
         # Remove the decrypted file
