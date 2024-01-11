@@ -23,28 +23,9 @@ if (!$FilePathOnServer) {
     files of statefulset and secret should be saved:"
 }
 
-function SaveStatefulsetFile($kubeconfigPath, $namespace, $statefulsetName, $srcPath, $destPath) {
-    Write-Host "Saving $srcPath to $destPath"
-    .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $namespace cp "${podName}:${srcPath}" $destPath
-
-    $scpCommand = "scp '$srcPath' '$destPath'"
-    Invoke-Expression -Command $scpCommand
-}
-
-function SaveSecretFile($kubeconfigPath, $namespace, $podName, $srcPath, $destPath) {
-    Write-Host "Saving $srcPath to $destPath"
-    .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $namespace cp "${podName}:${srcPath}" $destPath
-}
-
-function SaveConfigFile($kubeconfigPath, $namespace, $podName, $srcPath, $destPath) {
-    Write-Host "Saving $srcPath to $destPath"
-    .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $namespace cp "${podName}:${srcPath}" $destPath
-}
-
 $ArchiveName = "${OutputPath}/companion_backup.7z"
 $Namespace = "mgmtcompanion"
-$PodName = "mgmtcompanion-0"
-$StatefulsetName = "mgmtcompanion-statefulset"
+$StatefulsetName = "mgmtcompanion"
 $SecretName = "mgmtcompanion-secret"
 $ConfigmapName = "mgmtcompanion-config"
 
@@ -62,24 +43,15 @@ New-Item -Path ".\companion" -ItemType Directory -Force | Out-Null
 # Save statefulset
 
 Write-Host "Saving $FilePathOnServer/$StatefulsetName.yaml on your server to .\companion\$StatefulsetName.yaml"
-.\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace get statefulset $StatefulsetName -o yaml | Out-File -FilePath "${FilePathOnServer}/${StatefulsetName}.yaml"
-
-$scpCommand = "scp '${User}@${IP}:${FilePathOnServer}/${StatefulsetName}.yaml' '.\companion\${StatefulsetName}.yaml'"
-Invoke-Expression -Command $scpCommand
+.\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace get statefulset $StatefulsetName -o yaml > ".\companion\${StatefulsetName}.yaml"
 
 # Save secret
 Write-Host "Saving $FilePathOnServer/$SecretName.yaml on your server to .\companion\$SecretName.yaml"
-.\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace get secret $SecretName -o yaml | Out-File -FilePath "${FilePathOnServer}/${SecretName}.yaml"
-
-$scpCommand = "scp '${User}@${IP}:${FilePathOnServer}/${SecretName}.yaml' '.\companion\${SecretName}.yaml'"
-Invoke-Expression -Command $scpCommand
+.\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace get secret $SecretName -o yaml > ".\companion\${SecretName}.yaml"
 
 # Save config map
 Write-Host "Saving $FilePathOnServer/$ConfigmapName.yaml to .\companion\$ConfigmapName.yaml"
-.\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace get configmap $ConfigmapName -o yaml | Out-File -FilePath "${FilePathOnServer}/${ConfigmapName}.yaml"
-
-$scpCommand = "scp '${User}@${IP}:${FilePathOnServer}/${ConfigmapName}.yaml' '.\companion\${ConfigmapName}.yaml'"
-Invoke-Expression -Command $scpCommand
+.\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace get configmap $ConfigmapName -o yaml > ".\companion\${ConfigmapName}.yaml"
 
 # Compress the nodered folder
 $SevenZipPath = ".\_tools\7z.exe"
