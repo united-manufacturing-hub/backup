@@ -169,6 +169,7 @@ if ($SkipGpgQuestions)
 & ./backup-helm.ps1 -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath}
 & ./backup-nodered.ps1 -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath}
 & ./backup-timescale.ps1 -Ip ${IP} -Password ${DatabasePassword} -PasswordV2 ${DatabasePasswordV2} -Port ${DatabasePort} -User ${DatabaseUser} -Database ${DatabaseDatabase} -OutputPath ${OutputPath} -ParallelJobs ${ParallelJobs} -DaysPerJob ${DaysPerJob}
+& ./backup-companion.ps1 -IP ${IP} -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath} 
 
 # Create a new folder for the backup
 $CurrentDateTimestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
