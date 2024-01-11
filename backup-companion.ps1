@@ -31,11 +31,11 @@ New-Item -Path ".\companion" -ItemType Directory -Force | Out-Null
 
 # Save statefulset
 
-Write-Host "Saving $StatefulsetName.yaml on your server to .\companion\$StatefulsetName.yaml"
+Write-Host "Saving $StatefulsetName.yaml to .\companion\$StatefulsetName.yaml"
 .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace get statefulset $StatefulsetName -o yaml > ".\companion\${StatefulsetName}.yaml"
 
 # Save secret
-Write-Host "Saving $SecretName.yaml on your server to .\companion\$SecretName.yaml"
+Write-Host "Saving $SecretName.yaml to .\companion\$SecretName.yaml"
 .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace get secret $SecretName -o yaml > ".\companion\${SecretName}.yaml"
 
 # Save config map
