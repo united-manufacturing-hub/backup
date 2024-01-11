@@ -27,6 +27,9 @@ param(
     [Parameter(Mandatory=$false)] # Password of the database user. If default user (factoryinsight) is used, the default password is changeme
     [string]$DatabasePassword = "changeme",
 
+    [Parameter(Mandatory=$false)] # Password of the database user. If default user (factoryinsight) is used, the default password is changeme
+    [string]$DatabasePasswordV2 = "changemetoo",
+
     [Parameter(Mandatory=$false)] # External port of the database
     [int]$DatabasePort = 5432,
 
@@ -165,7 +168,8 @@ if ($SkipGpgQuestions)
 & ./backup-grafana.ps1 -FullUrl "http://${IP}:${GrafanaPort}" -Token ${GrafanaToken} -OutputPath ${OutputPath}
 & ./backup-helm.ps1 -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath}
 & ./backup-nodered.ps1 -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath}
-& ./backup-timescale.ps1 -Ip ${IP} -Password ${DatabasePassword} -Port ${DatabasePort} -User ${DatabaseUser} -Database ${DatabaseDatabase} -OutputPath ${OutputPath} -ParallelJobs ${ParallelJobs} -DaysPerJob ${DaysPerJob}
+& ./backup-timescale.ps1 -Ip ${IP} -Password ${DatabasePassword} -PasswordV2 ${DatabasePasswordV2} -Port ${DatabasePort} -User ${DatabaseUser} -Database ${DatabaseDatabase} -OutputPath ${OutputPath} -ParallelJobs ${ParallelJobs} -DaysPerJob ${DaysPerJob}
+& ./backup-companion.ps1 -IP ${IP} -KubeconfigPath ${KubeconfigPath} -OutputPath ${OutputPath} 
 
 # Create a new folder for the backup
 $CurrentDateTimestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -176,6 +180,7 @@ New-Item -Path $BackupFolderName -ItemType Directory -Force | Out-Null
 Move-Item -Path "${OutputPath}/grafana_backup.7z" -Destination "${BackupFolderName}/grafana_backup.7z"
 Move-Item -Path "${OutputPath}/helm_backup.7z" -Destination "${BackupFolderName}/helm_backup.7z"
 Move-Item -Path "${OutputPath}/nodered_backup.7z" -Destination "${BackupFolderName}/nodered_backup.7z"
+Move-Item -Path "${OutputPath}/companion_backup.7z" -Destination "${BackupFolderName}/companion_backup.7z"
 Move-Item -Path "${OutputPath}/timescale" -Destination "${BackupFolderName}/timescale"
 
 if ($EnableGpgSigning){

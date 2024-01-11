@@ -4,9 +4,9 @@ param(
     [Parameter(Mandatory = $false)] # Port of the cluster
     [int]$Port = 5432,
     [Parameter(Mandatory = $false)] # User of the cluster
-    [string]$User = "factoryinsight",
+    [string]$User = "kafkatopostgresqlv2",
     [Parameter(Mandatory = $false)] # Database of the cluster
-    [string]$Database = "factoryinsight",
+    [string]$Database = "umh_v2",
     [Parameter(Mandatory = $true)] # Path to the backup folder
     [string]$BackupPath = "",
     [Parameter(Mandatory = $true)] # Password of the postgresql user
@@ -142,7 +142,7 @@ if ($AssumeEncryption){
 
 # Connect to the source database
 $connectionStringPG = "postgres://postgres:${PatroniSuperUserPassword}@${Ip}:${Port}/postgres?sslmode=require"
-$connectionStringFC = "postgres://postgres:${PatroniSuperUserPassword}@${Ip}:${Port}/factoryinsight?sslmode=require"
+$connectionStringV2 = "postgres://postgres:${PatroniSuperUserPassword}@${Ip}:${Port}/umh_v2?sslmode=require"
 
 $versionQuery = "SELECT version();"
 $version = (psql -t -c $versionQuery $connectionStringPG | Out-String).Trim()
@@ -217,7 +217,7 @@ if ($go -eq $null) {
 # Terminate all connections to the database
 Write-Host "Terminating all connections to database $Database..."
 $revokeConnectionsQuery = "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '$Database';"
-psql -t -c $revokeConnectionsQuery $connectionStringFC
+psql -t -c $revokeConnectionsQuery $connectionStringV2
 
 # Drop the database
 Write-Host "Dropping database $Database..."
@@ -242,40 +242,26 @@ Write-Host "Restoring database $Database..."
 Write-Host "Restoring pre-data..."
 if ($AssumeEncryption){
     # Decrypt the dump_pre_data.bak file
-    Decrypt-File -InputFile "$BackupPath\timescale\dump_pre_data_factoryinsight.bak.gpg" -OutputFile "$BackupPath\timescale\dump_pre_data_factoryinsight.bak"
-    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data_factoryinsight.bak"
-    Remove-Item "$BackupPath\timescale\dump_pre_data_factoryinsight.bak"
+    Decrypt-File -InputFile "$BackupPath\timescale\dump_pre_data_v2.bak.gpg" -OutputFile "$BackupPath\timescale\dump_pre_data_v2.bak"
+    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data_v2.bak"
+    Remove-Item "$BackupPath\timescale\dump_pre_data_v2.bak"
 }else
 {
-    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data_factoryinsight.bak"
+    pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_pre_data_v2.bak"
 }
 
 ## Restore hypertables
 Write-Host "Restoring hypertables..."
 $HyperTablesTS = @(
-    "stateTable",
-    "countTable",
-    "processValueTable",
-    "processValueStringTable"
+    "tag",
+    "tag_string"
 )
 
 foreach ($tableName in $HyperTablesTS) {
     Write-Host "Recreating hypertable ($tableName)..."
     # SELECT create_hypertable('<TABLE_NAME>', 'timestamp');
     $createHyperTableQuery = "SELECT create_hypertable('$tableName', 'timestamp');"
-    psql -t -c $createHyperTableQuery $connectionStringFC
-}
-
-$HyperTablesPUID = @(
-    "productTagTable",
-    "productTagStringTable"
-)
-
-foreach ($tableName in $HyperTablesPUID) {
-    Write-Host "Recreating hypertable ($tableName)..."
-    # SELECT create_hypertable('<TABLE_NAME>', 'product_uid');
-    $createHyperTableQuery = "SELECT create_hypertable('$tableName', 'product_uid', chunk_time_interval => 100000);"
-    psql -t -c $createHyperTableQuery $connectionStringFC
+    psql -t -c $createHyperTableQuery $connectionStringV2
 }
 
 ## Restore data
@@ -286,29 +272,29 @@ $SevenZipPath = ".\_tools\7z.exe"
 ### For each .7z file in the backup folder\timescale\tables
 ### Create temp folder (./tables)
 New-Item -ItemType Directory -Force -Path ".\tables" | Out-Null
-New-Item -ItemType Directory -Force -Path ".\tables\factoryinsight" | Out-Null
-$files = Get-ChildItem "$BackupPath\timescale\tables\factoryinsight" -Filter *.7z
+New-Item -ItemType Directory -Force -Path ".\tables\umh_v2" | Out-Null
+$files = Get-ChildItem "$BackupPath\timescale\tables\umh_v2" -Filter *.7z
 if ($AssumeEncryption){
-    $files = Get-ChildItem "$BackupPath\timescale\tables\factoryinsight" -Filter *.7z.gpg
+    $files = Get-ChildItem "$BackupPath\timescale\tables\umh_v2" -Filter *.7z.gpg
 }
 foreach ($file in $files) {
     # Delete all file from the temp folder
-    Remove-Item -Path ".\tables\factoryinsight\*" -Force
+    Remove-Item -Path ".\tables\umh_v2\*" -Force
     Write-Host "Restoring file $file..."
     $fileName = $file.Name
 
     if ($AssumeEncryption){
         # Decrypt the file (don't forget to remove the .gpg extension)
         $fileNameWithoutExtension = $fileName -replace "\.gpg", ''
-        Decrypt-File -InputFile "$BackupPath\timescale\tables\factoryinsight\$fileName" -OutputFile "$BackupPath\timescale\tables\factoryinsight\$fileNameWithoutExtension"
+        Decrypt-File -InputFile "$BackupPath\timescale\tables\umh_v2\$fileName" -OutputFile "$BackupPath\timescale\tables\umh_v2\$fileNameWithoutExtension"
         $fileName = $fileNameWithoutExtension
     }
 
-    & $SevenZipPath x "$BackupPath\timescale\tables\factoryinsight\$fileName" -o".\tables\factoryinsight" -y | Out-Null
+    & $SevenZipPath x "$BackupPath\timescale\tables\umh_v2\$fileName" -o".\tables\umh_v2" -y | Out-Null
 
     ### For each file in the temp folder
-    $fx = Get-ChildItem ".\tables\factoryinsight" -Filter *.csv
-    Set-Location .\tables\factoryinsight
+    $fx = Get-ChildItem ".\tables\umh_v2" -Filter *.csv
+    Set-Location .\tables\umh_v2
     foreach ($fileX in $fx){
         $fileNameX = $fileX.Name
         ## Get tableName, by removing the .csv extension
@@ -334,7 +320,7 @@ foreach ($file in $files) {
         {
             #### \COPY <TABLE_NAME> FROM '<TABLE_NAME>.csv' WITH (FORMAT CSV);
             $copyQuery = "\COPY $tableName FROM '$fileX' WITH (FORMAT CSV);"
-            psql -t -c $copyQuery $connectionStringFC
+            psql -t -c $copyQuery $connectionStringV2
         }
     }
 
@@ -342,7 +328,7 @@ foreach ($file in $files) {
 
     if ($AssumeEncryption){
         # Remove the decrypted file
-        Remove-Item "$BackupPath\timescale\tables\factoryinsight\$fileName"
+        Remove-Item "$BackupPath\timescale\tables\umh_v2\$fileName"
     }
 }
 # Remove the temp folder
@@ -354,12 +340,12 @@ Write-Host "Restored Tables"
 Write-Host "Restoring post-data..."
 $restoreOutput = ""
 if ($AssumeEncryption){
-    Decrypt-File -InputFile "$BackupPath\timescale\dump_post_data_factoryinsight.bak.gpg" -OutputFile "$BackupPath\timescale\dump_post_data_factoryinsight.bak"
-    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data_factoryinsight.bak" 2>&1
-    Remove-Item "$BackupPath\timescale\dump_post_data_factoryinsight.bak"
+    Decrypt-File -InputFile "$BackupPath\timescale\dump_post_data_v2.bak.gpg" -OutputFile "$BackupPath\timescale\dump_post_data_v2.bak"
+    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data_v2.bak" 2>&1
+    Remove-Item "$BackupPath\timescale\dump_post_data_v2.bak"
 }else
 {
-    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data_factoryinsight.bak" 2>&1
+    $restoreOutput = pg_restore -U postgres -w -h $Ip -p $Port --no-owner -Fc -v -d $Database "$BackupPath\timescale\dump_post_data_v2.bak" 2>&1
 }
 
 $pattern = 'ALTER TABLE ONLY public.\w+\s+.*?;'
@@ -372,7 +358,7 @@ $erroredCommands | ForEach-Object {
     ## Remove ONLY from the command
     $command = $_ -replace "ONLY", ''
     ## Execute the command
-    psql -t -c $command $connectionStringFC
+    psql -t -c $command $connectionStringV2
 }
 
 
