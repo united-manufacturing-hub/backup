@@ -84,17 +84,19 @@ $SevenZipPath = ".\_tools\7z.exe"
 # Decompress the helm folder
 & $SevenZipPath x -y -o"$UnpackagedCompanionPath" "$BackupPath\companion_backup.7z" | Out-Null
 
+$UnpackagedCompanionPathSlash = $UnpackagedCompanionPath.Replace("\","/")
+
 Write-Host "Restore companion: Delete configmap"
 .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace delete configmap $ConfigmapName
-.\_tools\kubectl.exe apply -f ".\companion\${ConfigmapName}.yaml"
+.\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace create -f "$UnpackagedCompanionPathSlash/companion/$ConfigmapName.yaml"
 
 Write-Host "Restore companion: Delete secret"
 .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace delete secret $SecretName
-.\_tools\kubectl.exe apply -f ".\companion\${SecretName}.yaml"
+.\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace create -f "$UnpackagedCompanionPathSlash/companion/${SecretName}.yaml"
 
 Write-Host "Restore companion: Delete statefulset"
 .\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace delete statefulset $StatefulsetName
-.\_tools\kubectl.exe apply -f ".\companion\${StatefulsetName}.yaml"
+.\_tools\kubectl.exe --kubeconfig $kubeconfigPath -n $Namespace create -f "$UnpackagedCompanionPathSlash/companion/$StatefulsetName.yaml"
 
 # Remove unpackaged companion folder
 Remove-Item -Path $UnpackagedCompanionPath -Recurse -Force
