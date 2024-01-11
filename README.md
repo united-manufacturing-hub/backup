@@ -11,6 +11,7 @@ It will back up the following:
  - All Grafana dashboards
  - The current Helm values for the united-manufacturing-hub chart
  - All timescale tables used by the united-manufacturing-hub chart
+ - Settings of the Management Console Companion (configmap, secret, statefulset)
 
 We do *NOT* back up:
 
@@ -66,10 +67,23 @@ TODO: Add link to documentation
 	    -KubeconfigPath <PATH_TO_KUBECONFIG_OF_THE_NEW_SERVER> `
         -BackupPath <FULL_PATH_TO_BACKUP_FOLDER>
     ```
-5) Restoring TimescaleDB
+5) Restoring factoryinsight database in TimescaleDB
     ```powershell
     .\restore-timescale.ps1 `
 	-Ip <IP_OF_YOUR_NEW_SERVER> `
     -BackupPath <FULL_PATH_TO_BACKUP_FOLDER>
 	-PatroniSuperUserPassword <TIMESCALEDB_SUPERUSERPASSWORD>
+    ```
+6) Restoring umh_v2 database in TimescaleDB
+    ```powershell
+    .\restore-timescale-v2.ps1 `
+	-Ip <IP_OF_YOUR_NEW_SERVER> `
+    -BackupPath <FULL_PATH_TO_BACKUP_FOLDER>
+	-PatroniSuperUserPassword <TIMESCALEDB_SUPERUSERPASSWORD>
+    ```
+7) Restoring the Management Console Companion
+    ```powershell
+    .\restore-companion.ps1
+    -KubeconfigPath <PATH_TO_KUBECONFIG_OF_THE_NEW_SERVER>
+    -BackupPath <FULL_PATH_TO_BACKUP_FOLDER>
     ```
