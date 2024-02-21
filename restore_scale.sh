@@ -16,6 +16,6 @@ for NAMESPACE in $NAMESPACES; do
         read TYPE NAME REPLICA <<<$(echo $line)
         echo "Restoring $TYPE $NAME to $REPLICA replicas."
         # Restore the replica count
-        $(which kubectl) scale $TYPE $NAME --replicas=$REPLICA -n $NAMESPACE --kubeconfig /etc/rancher/k3s/k3s.yaml
+        sudo $(which kubectl) scale $TYPE $NAME --replicas=$REPLICA -n $NAMESPACE --kubeconfig /etc/rancher/k3s/k3s.yaml
     done <"$REPLICA_FILE"
 done

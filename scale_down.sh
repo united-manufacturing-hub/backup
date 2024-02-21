@@ -8,24 +8,24 @@ echo "" >$REPLICA_FILE
 
 for NAMESPACE in $NAMESPACES; do
     # Scale down Deployments
-    for DEPLOYMENT in $($(which kubectl) get deployments -n $NAMESPACE -o jsonpath='{.items[*].metadata.name}' --kubeconfig /etc/rancher/k3s/k3s.yaml); do
+    for DEPLOYMENT in $(sudo $(which kubectl) get deployments -n $NAMESPACE -o jsonpath='{.items[*].metadata.name}' --kubeconfig /etc/rancher/k3s/k3s.yaml); do
         # Get current replica count
-        CURRENT_REPLICA=$($(which kubectl) get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.spec.replicas}')
+        CURRENT_REPLICA=$(sudo $(which kubectl) get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.spec.replicas}')
         echo "Deployment $DEPLOYMENT has $CURRENT_REPLICA replicas. Scaling down to 0."
         # Save to file
         echo "Deployment $DEPLOYMENT $CURRENT_REPLICA" >>$REPLICA_FILE
         # Scale down
-        $(which kubectl) scale deployment $DEPLOYMENT --replicas=0 -n $NAMESPACE
+        sudo $(which kubectl) scale deployment $DEPLOYMENT --replicas=0 -n $NAMESPACE
     done
 
     # Scale down StatefulSets
-    for STATEFULSET in $($(which kubectl) get statefulsets -n $NAMESPACE -o jsonpath='{.items[*].metadata.name}' --kubeconfig /etc/rancher/k3s/k3s.yaml); do
+    for STATEFULSET in $(sudo $(which kubectl) get statefulsets -n $NAMESPACE -o jsonpath='{.items[*].metadata.name}' --kubeconfig /etc/rancher/k3s/k3s.yaml); do
         # Get current replica count
-        CURRENT_REPLICA=$($(which kubectl) get statefulset $STATEFULSET -n $NAMESPACE -o jsonpath='{.spec.replicas}' --kubeconfig /etc/rancher/k3s/k3s.yaml)
+        CURRENT_REPLICA=$(sudo $(which kubectl) get statefulset $STATEFULSET -n $NAMESPACE -o jsonpath='{.spec.replicas}' --kubeconfig /etc/rancher/k3s/k3s.yaml)
         echo "StatefulSet $STATEFULSET has $CURRENT_REPLICA replicas. Scaling down to 0."
         # Save to file
         echo "StatefulSet $STATEFULSET $CURRENT_REPLICA" >>$REPLICA_FILE
         # Scale down
-        $(which kubectl) scale statefulset $STATEFULSET --replicas=0 -n $NAMESPACE --kubeconfig /etc/rancher/k3s/k3s.yaml
+        sudo $(which kubectl) scale statefulset $STATEFULSET --replicas=0 -n $NAMESPACE --kubeconfig /etc/rancher/k3s/k3s.yaml
     done
 done
