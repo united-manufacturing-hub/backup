@@ -10,12 +10,12 @@ for NAMESPACE in $NAMESPACES; do
     # Scale down Deployments
     for DEPLOYMENT in $(sudo $(which kubectl) get deployments -n $NAMESPACE -o jsonpath='{.items[*].metadata.name}' --kubeconfig /etc/rancher/k3s/k3s.yaml); do
         # Get current replica count
-        CURRENT_REPLICA=$(sudo $(which kubectl) get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.spec.replicas}')
+        CURRENT_REPLICA=$(sudo $(which kubectl) get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.spec.replicas}' --kubeconfig /etc/rancher/k3s/k3s.yaml)
         echo "Deployment $DEPLOYMENT has $CURRENT_REPLICA replicas. Scaling down to 0."
         # Save to file
         echo "Deployment $DEPLOYMENT $CURRENT_REPLICA" >>$REPLICA_FILE
         # Scale down
-        sudo $(which kubectl) scale deployment $DEPLOYMENT --replicas=0 -n $NAMESPACE
+        sudo $(which kubectl) scale deployment $DEPLOYMENT --replicas=0 -n $NAMESPACE --kubeconfig /etc/rancher/k3s/k3s.yaml
     done
 
     # Scale down StatefulSets
